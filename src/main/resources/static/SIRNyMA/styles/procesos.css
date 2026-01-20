@@ -1,0 +1,607 @@
+/*Estilos para el navbar */
+.nav-link {
+    color: aliceblue !important;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+  }
+  
+  .nav-link:hover {
+    background-color: #005fa3;
+    color: white !important;
+  }
+  
+  .nav-link.active {
+    background-color: #ffffff;
+    color: #003057 !important;
+    font-weight: bold;
+  }
+  
+
+.iconcustom {
+    font-size: 3rem;            /* Tamaño grande del ícono */
+    color: #113250;
+}
+
+.texto-direction {
+    font-weight: bold;
+    color: #113250;             /* Azul oscuro para el título */
+    display: block;             /* Coloca el texto en su propia línea */
+    margin-top: 10px;
+}
+
+.texto-totalP {
+    color: #6c757d;             /* Texto gris suave */
+}
+
+.texto-numero {
+    font-size: 1.5rem;
+    color: #113250;             /* Color del número */
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.custom-card-btn {
+    background-color: #fff;         /* Fondo blanco como las tarjetas */
+    border: 1px solid #dee2e6;      /* Borde suave */
+    border-radius: 8px;            /* Esquinas redondeadas */
+    padding: 15px;                 /* Espaciado interno */
+    width: 100%;                   /* Ocupa el ancho completo del contenedor */
+    cursor: pointer;               /* Manito al pasar el mouse */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);  /* Sombra ligera */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.custom-card-btn:hover {
+    transform: translateY(-3px);   /* Efecto de elevación al pasar el mouse */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* Sombra más pronunciada */
+}
+
+.custom-card-btn:focus {
+    outline: none;                 /* Elimina el borde azul al enfocar */
+}
+
+#procesosCounter {
+    font-weight: bold;
+    color: #0d6efd; /* Color azul de Bootstrap */
+    font-size: 1.2em;
+}
+
+body, html {
+    font-family: Helvetica, Sans-Serif !important;
+}
+
+@media (max-width: 1024px) {
+  .custom-card-btn,
+  .card,
+  .iconcustom,
+  .texto-direction,
+  .texto-numero {
+    font-size: 1.1rem !important;
+    padding: 10px !important;
+  }
+  .custom-card-btn {
+    width: 100% !important;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .iconcustom {
+    font-size: 2.2rem !important;
+  }
+  .texto-direction,
+  .texto-numero {
+    font-size: 1.3rem !important;
+  }
+  #procesosCounter {
+    font-size: 1rem !important;
+  }
+}
+
+@media (max-width: 1366px) and (max-height: 768px) {
+  .header-img-container {
+    height: 210px !important;
+  }
+}
+
+/* Estilos para seleccion de unidad  */
+/* Estado seleccionado para las cards de Unidades Administrativas */
+/* ====== Selección y responsividad SOLO para las cards de Unidades ====== */
+
+/* Base */
+.card.card-unidad{
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease, transform .1s ease;
+}
+.card.card-unidad:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 0.35rem 1rem rgba(0,0,0,.12);
+}
+
+/* Estado seleccionado */
+.card.card-unidad.card-selected{
+  background-color: #005fa3 !important;
+  border-color: #005fa3 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0.5rem 1.25rem rgba(0, 95, 163, .35);
+}
+
+/* Fuerza blanco en TODO (texto, iconos, svg, títulos, muteds, etc.) */
+.card.card-unidad.card-selected,
+.card.card-unidad.card-selected *:not(.badge):not(.btn) {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Asegura iconos Bootstrap/FontAwesome */
+.card.card-unidad.card-selected .bi,
+.card.card-unidad.card-selected i,
+.card.card-unidad.card-selected svg {
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+/* Si hay .text-muted dentro, que no se vea gris */
+.card.card-unidad.card-selected .text-muted{
+  color: #ffffff !important;
+  opacity: .95 !important;
+}
+
+/* Accesibilidad: foco visible */
+.card.card-unidad:focus-visible,
+.card.card-unidad[aria-pressed="true"]:focus-visible{
+  outline: 2px solid #88c3eb;
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* ====== Responsivo SOLO para cards de Unidades ====== */
+
+/* Iconos un poco más grandes en desktop */
+.card.card-unidad .iconcustom{ font-size: 3.25rem; }
+
+/* <= 992px: compacta un poco */
+@media (max-width: 992px){
+  .card.card-unidad{ padding: 12px; }
+  .card.card-unidad .iconcustom{ font-size: 2.6rem; }
+  .card.card-unidad .nameofDirection,
+  .card.card-unidad .texto-direction{ font-size: 1.05rem; }
+}
+
+/* <= 576px: layout horizontal para que todo quepa bonito */
+@media (max-width: 576px){
+  .card.card-unidad{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+  }
+  .card.card-unidad .card-body{ padding: 0 !important; }
+  .card.card-unidad .iconcustom{ font-size: 2.2rem; }
+  .card.card-unidad .nameofDirection,
+  .card.card-unidad .texto-direction{ font-size: 1rem; line-height: 1.2; }
+}
+
+
+/* Asegurar tipografías y/o iconos en blanco dentro del estado activo */
+/* ===== Contadores (summaryCounters) — estilo mejorado ===== */
+/* ===== Corrección de alineación en los contadores del resumen ===== */
+
+/* Alinea perfectamente número y texto verticalmente */
+#summaryCounters .scard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Espaciado consistente entre número y texto */
+#summaryCounters .scard .scard-num {
+  margin-bottom: 0.25rem; /* separa un poco el número del texto */
+}
+
+/* Centra también el texto si tiene varias líneas */
+#summaryCounters .scard .scard-label {
+  text-align: center;
+  line-height: 1.3;
+  display: block;
+  max-width: 200px; /* evita que el texto se expanda demasiado */
+}
+
+/* En pantallas pequeñas, ajusta proporciones */
+@media (max-width: 768px) {
+  #summaryCounters .scard {
+    flex-direction: column;
+    align-items: center;
+  }
+  #summaryCounters .scard .scard-label {
+    font-size: 0.9rem;
+    max-width: 160px;
+  }
+}
+
+#summaryCounters .scard .scard-icon{
+  /* icono más grande */
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 1.85rem; /* tamaño del ícono */
+  /* tonos suaves por tipo */
+}
+#summaryCounters .scard .scard-lilac { background:#efe7ff; color:#6f42c1; }
+#summaryCounters .scard .scard-blue  { background:#e1f3ff; color:#0d6efd; }
+#summaryCounters .scard .scard-orange{ background:#ffe8d9; color:#e2772f; }
+#summaryCounters .scard .scard-green { background:#e7f6ed; color:#198754; }
+
+/* número: más oscuro, pesado, y centrado (también para spinner) */
+#summaryCounters .scard .scard-num{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;      /* mantiene altura estable with spinner */
+  color: #0b2239;          /* más oscuro */
+  font-weight: 800;        /* más grueso */
+  font-size: 2rem;         /* más grande */
+  font-family: 'Monaco', ui-monospace, SFMono-Regular, Menlo, monospace;
+  line-height: 1;
+}
+
+/* spinner dentro del número (tamaño) */
+#summaryCounters .scard .scard-num .spinner-border{
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* etiqueta */
+#summaryCounters .scard .scard-label{
+  font-size: 0.95rem;
+  color:#5b5b5b;
+  margin-top: .15rem;
+}
+
+/* separación entre icono y textos un pelín mayor */
+#summaryCounters .scard{
+  gap: 12px !important;
+}
+
+/* responsive pequeño */
+@media (max-width: 575px){
+  #summaryCounters .scard .scard-icon{
+    width: 52px; height: 52px; font-size: 1.65rem;
+  }
+  #summaryCounters .scard .scard-num{ font-size: 1.7rem; }
+  #summaryCounters .scard .scard-label{ font-size: .9rem; }
+}
+
+/* Alineación de boton borrar filtros */
+#resetFiltrosBtn {
+  margin-left: auto !important;
+}
+
+.d-flex.align-items-center.gap-2 {
+  flex-wrap: nowrap !important; /* evita que el botón baje de línea */
+  flex: 1 1 auto;
+}
+
+/* -----------------------------
+   Responsividad alineada con index.css
+   Breakpoints: 1366x768, 768-1024 (iPad), <=1024 (tablet), <=480 (móvil)
+   -----------------------------*/
+
+/* Ajustes finos para 1366x768 (proyector / laptop) */
+@media only screen and (min-width: 1340px) and (max-width: 1380px) and (min-height: 740px) and (max-height: 780px) {
+  .header-img-container { height: 210px !important; }
+
+  .custom-card-btn {
+    padding: 12px !important;
+    font-size: 1.02rem !important;
+    max-width: 96%;
+  }
+
+  .iconcustom { font-size: 2.8rem !important; }
+  .texto-direction { font-size: 1.05rem !important; }
+
+  .card.card-unidad { padding: 14px !important; }
+  .card.card-unidad .iconcustom { font-size: 3rem !important; }
+
+  #summaryCounters .scard .scard-num { font-size: 1.9rem !important; min-height: 2.4rem; }
+  #summaryCounters .scard .scard-label { max-width: 220px; }
+}
+
+/* iPad / pantallas entre 768px y 1024px (colocación similar a index.css) */
+@media only screen and (min-width: 768px) and (max-width: 1024px) {
+  .custom-card-btn,
+  .card,
+  .iconcustom,
+  .texto-direction,
+  .texto-numero {
+    font-size: 1.08rem !important;
+    padding: 10px !important;
+  }
+
+  .custom-card-btn { max-width: 460px; margin: 0 auto; }
+  .iconcustom { font-size: 2.4rem !important; }
+
+  .overlay-box, /* si se comparte entre hojas, permitir adaptación visual */
+  .card.card-unidad { transition: all .18s ease; }
+
+  .card.card-unidad { padding: 12px !important; }
+  .card.card-unidad .iconcustom { font-size: 2.6rem !important; }
+  .card.card-unidad .nameofDirection,
+  .card.card-unidad .texto-direction { font-size: 1.06rem !important; }
+
+  #summaryCounters .scard .scard-num { font-size: 1.6rem !important; }
+  #summaryCounters .scard .scard-label { font-size: 0.98rem !important; max-width: 180px; }
+}
+
+/* Tablet grande / pantallas <= 1024px: general */
+@media only screen and (max-width: 1024px) {
+  body, html { font-size: 15px; }
+
+  .overlay-brand-top { max-width: 220px; } /* si se usa aquí */
+  .header-img-container { height: auto; }
+
+  /* Filtros / cards más compactos */
+  .custom-card-btn { padding: 10px; }
+  .card.card-unidad { padding: 10px; }
+}
+
+/* Móvil pequeño (<=480px) */
+@media only screen and (max-width: 480px) {
+  .custom-card-btn,
+  .card,
+  .iconcustom,
+  .texto-direction,
+  .texto-numero {
+    font-size: 1rem !important;
+    padding: 8px !important;
+  }
+
+  .custom-card-btn { width: 100% !important; max-width: none; margin: 0; }
+  .iconcustom { font-size: 2.0rem !important; }
+  .texto-direction,
+  .texto-numero { font-size: 1rem !important; line-height: 1.15; }
+
+  /* Cards de unidades en fila horizontal para caber mejor */
+  .card.card-unidad{ display: flex; align-items:center; gap:10px; padding:10px; }
+  .card.card-unidad .card-body{ padding: 0 !important; }
+
+  /* Contadores adaptados */
+  #summaryCounters .scard .scard-icon { width: 52px; height: 52px; font-size: 1.55rem; }
+  #summaryCounters .scard .scard-num { font-size: 1.6rem; }
+  #summaryCounters .scard .scard-label { font-size: 0.92rem; max-width:140px; }
+}
+
+/* Transiciones y suavizado global para cambios de tamaño */
+.custom-card-btn,
+.card.card-unidad,
+#summaryCounters .scard,
+.iconcustom {
+  transition: all .16s ease-in-out;
+}
+
+/* Fin del bloque responsivo */
+
+/* === Flip cards para procesos === */
+.flip-wrap {
+  perspective: 1000px;
+  height: 300px; /* reducido de 310px a 300px */
+  width: 100%;
+}
+
+.flip-card {
+  position: relative;
+  width: 100%;
+  height: 100%; /* hereda 300px del padre */
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+/* Cuando está flipped, rotar la tarjeta */
+.flip-card.flipped {
+  transform: rotateY(180deg);
+}
+
+.flip-card-inner {
+  position: relative;
+  width: 100%;
+  height: 100%; /* asegurar que ocupe todo el contenedor */
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+
+/* Ambos lados (frente y atrás) ocupan el mismo espacio */
+.flip-side {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: stretch; /* stretch para que card ocupe todo el alto */
+}
+
+.flip-front {
+  z-index: 2;
+}
+
+.flip-back {
+  transform: rotateY(180deg);
+  z-index: 1;
+  background-color: #113250 !important; /* Azul oscuro en el back */
+}
+
+.flip-back .card {
+  background-color: #113250 !important;
+  border-color: #113250 !important;
+  color: #ffffff !important;
+}
+
+.flip-back .card * {
+  color: #ffffff !important;
+}
+
+/* Card dentro del flip: ocupar todo el alto disponible */
+.proceso-card {
+  width: 100%;
+  height: 100% !important;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* ↑ más padding arriba para dejar espacio al badge IIN */
+  padding: 1.35rem 3.2rem 1.80rem 1.80rem;
+ 
+}
+
+.proceso-title {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin-top: 0.50rem;   /* empuja un poquito más hacia abajo */
+  margin-bottom: 0.4rem;
+  padding-right: 0.2rem;
+  padding-left: 0.2rem;
+}
+
+.proceso-card .card-body {
+  height: auto;
+  flex-grow: 1; /* expandir para llenar espacio */
+  overflow-y: auto; /* scroll si el contenido es muy largo */
+  padding: 0.6rem;
+  padding-right: 0.4rem; /* asegurar que no toque el botón */
+}
+
+.proceso-meta p {
+  font-size: 0.88rem;
+}
+
+.proceso-body {
+  flex-grow: 1;
+  padding: 0;              /* ya controlamos con .proceso-card */
+}
+
+.proceso-desc {
+  flex-grow: 1;
+  overflow-y: auto; /* permitir scroll en descripciones largas */
+  padding-bottom: 0.5rem;
+  padding-right: 0.4rem; /* asegurar que no toque el botón */
+}
+
+/* Botón de flip: barra lateral derecha (vertical) */
+.btn-flip {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 34px; /* si lo quieres aún menos invasivo */
+  padding: 0 !important;
+  border: none;
+  border-radius: 2;
+  background-color: #005fa3;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  margin: 0 !important;
+  z-index: 10;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+.btn-flip:hover {
+  background-color: #003d6b;
+}
+
+.btn-flip:focus {
+  outline: 2px solid #88c3eb;
+  outline-offset: -2px;
+}
+
+/* Botón de unflip: al pie en la parte de atrás - color amarillo/dorado para destacar */
+.btn-unflip {
+  align-self: flex-end;
+  margin-top: auto;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.85rem;
+  background-color: #2C7D68; /* Amarillo/dorado que contrasta con azul oscuro */
+  border-color: #2C7D68;
+  color: #113250; /* Texto azul oscuro para legibilidad */
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  margin-top: .8rem;
+}
+
+.btn-unflip:hover {
+  background-color: #2C7D68; /* Más oscuro al hover */
+  transform: scale(1.05);
+}
+
+.btn-unflip:focus {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* Responsivo: ajustar altura para iPad */
+@media only screen and (min-width: 768px) and (max-width: 1024px) {
+  .flip-wrap {
+    height: 280px; /* reducido de 300px a 280px */
+  }
+
+  .proceso-card {
+    padding-right: 36px;
+  }
+
+  .proceso-card .card-body {
+    padding: 0.4rem;
+    padding-right: 0.3rem;
+    font-size: 0.86rem;
+  }
+
+  .proceso-desc {
+    font-size: 0.80rem;
+    padding-right: 0.3rem;
+  }
+
+  .btn-flip {
+    width: 32px;
+    font-size: 0.9rem;
+  }
+
+  .btn-unflip {
+    padding: 0.12rem 0.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Responsive: móvil */
+@media only screen and (max-width: 767px) {
+  .flip-wrap {
+    height: 250px; /* reducido de 270px a 250px */
+  }
+
+  .proceso-card {
+    padding-right: 32px;
+  }
+
+  .proceso-card .card-body {
+    padding: 0.25rem;
+    padding-right: 0.2rem;
+    font-size: 0.80rem;
+  }
+
+  .proceso-desc {
+    font-size: 0.74rem;
+    padding-right: 0.2rem;
+  }
+
+  .btn-flip {
+    width: 28px;
+    font-size: 0.8rem;
+  }
+
+  .btn-unflip {
+    padding: 0.1rem 0.45rem;
+    font-size: 0.75rem;
+  }
+}
+

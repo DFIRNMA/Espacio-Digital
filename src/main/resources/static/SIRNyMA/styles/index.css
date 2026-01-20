@@ -1,0 +1,1003 @@
+/* --- Ajuste para que el texto del carrusel no interfiera con las flechas en pantalla completa --- */
+@media only screen and (min-width: 1200px) {
+  #myCarousel .carousel-item .col-md-6.ps-5.pe-3,
+  #myCarousel .carousel-item .col-md-6.ps-5.pe-3[style],
+  #myCarousel .carousel-item .col-md-6.ps-5.pe-3 {
+    margin-top: 40px !important;
+  }
+  #myCarousel .carousel-item .col-md-6[style*="margin-left"],
+  #myCarousel .carousel-item .col-md-6[style*="margin-bottom"] {
+    margin-top: 40px !important;
+  }
+}
+/*Estilos para el navbar */
+.nav-link {
+  color: aliceblue !important;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #005fa3;
+  color: white !important;
+}
+
+.nav-link.active {
+  background-color: #ffffff;
+  color: #003057 !important;
+  font-weight: bold;
+}
+
+
+/* --- Normaliza el layout del slide --- */
+/* Base: evita que márgenes internos empujen las imágenes hacia abajo */
+#myCarousel .carousel-item .col-md-6 {
+  margin-bottom: 0 !important;
+}
+
+/* Columna de la imagen centra horizontal, controlamos vertical con flex-start */
+#myCarousel .carousel-media {
+  display: flex;
+  justify-content: center;
+  align-items: center; /* default desktop: center; lo cambiaremos por breakpoint */
+  padding: 0 1rem;
+}
+
+/* Imagen: sin distorsión */
+#myCarousel .carousel-img {
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+/* --- Ajuste específico para 1280x800 (y desktops cercanos) --- */
+@media (min-width: 992px) and (max-width: 1366px) {
+  /* Mantener dos columnas sin wrap y bajar un poco el alto total */
+  #myCarousel .carousel-item .d-flex {
+    flex-wrap: nowrap;
+    height: 420px; /* antes 500px: evita que “caiga” visualmente */
+    align-items: stretch; /* que las columnas ocupen todo el alto */
+  }
+
+  /* TOP align de la columna de imagen para que no quede “baja” */
+  #myCarousel .carousel-media {
+    align-items: flex-start;   /* <— coloca la imagen arriba */
+  }
+
+  /* Levantar aún más la imagen si fuera necesario */
+  #myCarousel .carousel-img {
+    max-height: calc(100% - 32px); /* deja respiro arriba-abajo */
+    margin-top: -10px;             /* pequeño lift visual */
+  }
+
+  /* Si alguna columna trae mb-* o estilos inline con margin-bottom, neutralízalos */
+  #myCarousel .carousel-item .col-md-6[class*="mb-"] { margin-bottom: 0 !important; }
+  #myCarousel .carousel-item .col-md-6[style*="margin-bottom"] { margin-bottom: 0 !important; }
+}
+
+/* Tablets/móvil: apilado vertical y cota de altura de imagen */
+@media (max-width: 991.98px) {
+  #myCarousel .carousel-item .d-flex {
+    flex-wrap: wrap;
+    height: auto;
+  }
+  #myCarousel .carousel-media {
+    align-items: center;
+  }
+  #myCarousel .carousel-img {
+    max-height: 320px;
+  }
+}
+
+
+  /*! botones modificados */
+  p{
+   font-family: Arial, Helvetica, sans-serif;
+  }
+
+  
+  /* APARTADO DE ESTILOS PARA DIFERENTES TIPOS DE RESOLUCIONES. */
+  
+  /* Laptop y proyectores */
+  
+  @media only screen and (max-width: 1366px) {
+    .imagenCarouselINEGI{
+      width: 32%;
+      height: 32px;
+      padding-bottom: 15px;
+    }
+    }
+  
+  @media only screen and (max-width: 1024px) {
+    .imagenCarouselINEGI{
+      width: 30%;
+      height: 30px;
+      padding-bottom: 15px;
+    }
+    }
+  
+    @media only screen and (max-width: 480px) {
+      .imagenCarouselINEGI{
+        margin-right: auto;
+        width: 12rem;
+        height: 50px;
+      }
+    }
+  
+    @media only screen and (min-width: 2560px) and (max-width: 3440px) {
+      .imagenCarouselODS{
+      
+        padding-left: 25rem;
+        width: 75%;
+        height: 100px;
+      }
+    }
+  
+  
+    @media only screen and (max-width: 1366px) {
+      .imagenCarouselODS{
+        padding-right: 180px;
+        width: 90%;
+        height: 75px;
+      }
+      }
+  
+  
+    /* Laptop y proyectores */
+  @media only screen and (max-width: 1024px) {
+    .imagenCarouselODS{
+      padding-right: 200px;
+      width: 95%;
+      height: 80px;
+      padding-bottom: 20px;
+    }
+    }
+  
+    /* Dispositivos moviles */
+    @media only screen and (max-width: 480px) {
+      .imagenCarouselODS{
+        padding-right: 400px;
+        padding-bottom: 35px;
+          width: 40rem;
+          height: 65px;
+      }
+    }
+  
+    /* Laptop y proyectores */
+    @media only screen and (max-width: 1024px) {
+        .imagenCarouselSNIEG{
+        width: 60%;
+        height: 60px;
+        padding-bottom: 15px;
+      }
+      }
+  
+      /* Dispositivos moviles */
+      @media only screen and (max-width: 480px) {
+          .imagenCarouselSNIEG{
+         
+          margin-right: auto;
+          width: 15rem;
+          height: 50px;
+        }
+      }
+  
+      @media only screen and (max-width: 1366px) {
+        .imagenCarouselGeonode{
+        padding-right: auto;
+        padding-top: 50px;
+        width: 8.5rem;
+        height: 40px;
+      }
+     }
+  
+      @media only screen and (max-width: 1024px) {
+        .imagenCarouselGeonode{
+        margin-right: auto;
+        width: 7.5rem;
+        height: 40px;
+      }
+     }
+  
+      @media only screen and (max-width: 480px) {
+        .imagenCarouselGeonode{
+        margin-right: auto;
+        padding-top: 10px;
+        width: 6rem;
+        height: 30px;
+      }
+     }
+  
+  
+     /* Botones para resolución de laptop */
+     @media only screen and (max-width: 1366px)  {
+      .custom-btn-colorWhite {
+        font-size: 1rem;     
+        padding: 6px 12px;    
+      }
+    }
+  
+    @media only screen and (max-width: 1366px)  {
+      .custom-btn-color {
+        font-size: 1rem;    
+        padding: 6px 12px;  
+      }
+    }
+  
+    @media only screen and (max-width: 1366px) {
+      .custom-btn-color2 {
+        font-size: 1rem;     
+        padding: 6px 12px;   
+      }
+    }
+  
+    @media only screen and (max-width: 1366px) {
+      .custom-btn-colorGris {
+        font-size: 1rem;     
+        padding: 6px 12px;   
+      }
+    }
+  
+  
+      /* Botones para resolución de proyector */
+  
+  
+      @media only screen and (max-width: 1024px)  {
+        .custom-btn-colorWhite {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 1024px)  {
+        .custom-btn-color {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 1024px) {
+        .custom-btn-color2 {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 1024px) {
+        .custom-btn-colorGris {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      /* Botones para dispositivos moviles.  */
+      @media only screen and (max-width: 480px) {
+        .custom-btn-colorWhite {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 480px) {
+        .custom-btn-color {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 480px) {
+        .custom-btn-color2 {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+      @media only screen and (max-width: 480px) {
+        .custom-btn-colorGris {
+          font-size: 1rem;
+          padding: 6px 12px;
+        }
+      }
+  
+  
+  .espacio{
+    margin-top: 1rem;
+    margin-left: 2rem;
+    margin-right: 2rem;
+    color: white;
+  }
+  
+  .justificado{
+    text-align: justify;
+    margin-left: 3rem;
+    margin-right: 3rem;
+    margin-bottom: 3rem;
+    font-size: 1rem;
+  }
+  .tMision{
+    margin-left: 5rem;
+  }
+  .space{
+    margin-right: 0.5rem;
+  }
+  
+  
+  @media only screen and (min-width: 2560px) and (max-width: 3440px) {
+    #Mision {
+      text-align: justify;  
+      padding: 1rem;     
+      padding-left: 5rem;
+      font-size: 1rem;   
+    }
+  
+    #Vision {
+      text-align: justify;  
+      padding: 1rem;      
+      padding-right: 5rem;
+      font-size: 1rem;    
+    }
+  }
+  
+  
+  @media only screen and (max-width: 1366px) {
+    .justificado{
+      text-align: justify;
+      margin-top: 10px;
+      margin-left: 3rem;
+      margin-right: 3rem;
+      margin-bottom: 3rem;
+      font-size: 1rem;
+    }
+  }
+  @media only screen and (max-width: 1024px) {
+    .justificado{
+      text-align: justify;
+      margin-top: 10px;
+      margin-left: -1rem;
+      margin-right: -1rem;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+  }
+  
+  @media only screen and (max-width: 480px) {
+    .justificado{
+      text-align: justify;
+      margin-left: -1.5rem;
+      margin-right: -1.5rem;
+      margin-bottom: 2rem;
+      font-size: 0.8rem;
+    }
+  }
+  
+  
+  @media only screen and (max-width: 480px) {
+    .TituloINEGICarousel{
+      font-size: larger;
+      font-weight: 600;
+    }
+  }
+  
+  @media only screen and (max-width: 480px) {
+    .TituloOdsCarousel{
+      font-size: larger;
+      font-weight: 600;
+    }
+  }
+  
+  
+  @media only screen and (max-width: 480px) {
+    .TituloMdeaCarousel{
+      font-size: larger;
+      font-weight: 600;
+    }
+  }
+  
+  @media only screen and (max-width: 480px) {
+    .TituloSniegCarousel{
+      font-size: larger;
+      font-weight: 600;
+    }
+  }
+  
+  @media only screen and (max-width: 480px) {
+    .TituloGeonodeCarousel{
+      font-size: larger;
+      font-weight: 600;
+    }
+  }
+
+  /*Estilos de la card de mision*/
+
+  .card {
+    width: 24rem;
+    height: 36rem;
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.2);
+   
+    img {
+      position: absolute;
+      object-fit: cover;
+      width: 100%;
+      height: 150%;
+      top: 0;
+      left: 0;
+      opacity: 0.9;
+      transition: opacity .2s ease-out;
+    }
+
+    .card-content {
+      position: relative;
+      z-index: 2;
+    }
+  
+    h2 {
+      position: absolute;
+      inset: auto auto 30px 30px;
+      margin: 0;
+      transition: inset .3s .3s ease-out;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: normal;
+      text-transform: uppercase;
+    }
+    
+    p, a {
+      position: absolute;
+      opacity: 0;
+      max-width: 80%;
+      transition: opacity .3s ease-out;
+    }
+    
+    p {
+      inset: auto auto 80px 30px;
+    }
+    
+    a {
+      inset: auto auto 40px 30px;
+      color: inherit;
+      text-decoration: none;
+    }
+    
+    &:hover h2 {
+      inset: auto auto 220px 30px;
+      transition: inset .3s ease-out;
+    }
+    
+    &:hover p, &:hover a {
+      opacity: 1;
+      transition: opacity .5s .1s ease-in;
+    }
+    
+    &:hover img {
+      transition: opacity .3s ease-in;
+      opacity: 1;
+    }
+  
+  }
+  
+  .material-symbols-outlined {
+    vertical-align: middle;
+  }
+  
+  /*Estilos de la card de vision*/
+
+
+.card {
+  width: 24rem;
+  height: 36rem;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  box-shadow: 0 10px 30px 5px rgba(0, 0, 0, 0.2);
+
+  img {
+    position: absolute;
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    opacity: 0.9;
+    transition: opacity .2s ease-out;
+  }
+
+  .card-content {
+    position: relative;
+    z-index: 2;
+  }
+
+  h2 {
+    position: absolute;
+    inset: auto auto 30px 30px;
+    margin: 0;
+    transition: inset .3s .3s ease-out;
+    font-family: 'Roboto Condensed', sans-serif;
+    font-weight: normal;
+    text-transform: uppercase;
+  }
+
+  p, a {
+    position: absolute;
+    opacity: 0;
+    max-width: 80%;
+    transition: opacity .3s ease-out;
+  }
+
+  p {
+    inset: auto auto 80px 30px;
+  }
+
+  a {
+    inset: auto auto 40px 30px;
+    color: inherit;
+    text-decoration: none;
+  }
+
+  &:hover h2 {
+    inset: auto auto 220px 30px;
+    transition: inset .3s ease-out;
+  }
+
+  &:hover p, &:hover a {
+    opacity: 1;
+    transition: opacity .5s .1s ease-in;
+  }
+
+  &:hover img {
+    transition: opacity .3s ease-in;
+    opacity: 1;
+  }
+}
+
+/*Estilos para el tema de actualidad*/
+/* CSS */
+.tab-wrapper {
+  display: flex;
+  background-color: #f9f9f9;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tab-menu {
+  width: 30%;
+  background: #f0f8ff;
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-item {
+  padding: 1.2rem;
+  cursor: pointer;
+  font-family: Helvetica, sans-serif;
+  transition: background 0.3s, color 0.3s;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.tab-item:hover {
+  background: #e6f7ff;
+}
+
+.tab-item.active {
+  background-color: #d8ceff;
+  font-weight: bold;
+  border-left: 4px solid #8a7dff;
+}
+
+.tab-content {
+  width: 70%;
+  padding: 2rem;
+  background: #ffffff;
+}
+
+.content-section {
+  display: none;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.content-section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {opacity: 0;}
+  to {opacity: 1;}
+}
+
+body, html {
+    font-family: Helvetica, Sans-Serif !important;
+}
+
+.slide-hero {
+  position: relative;
+  width: 100%;
+  height: 520px;         /* antes 500px */
+  overflow: hidden;
+}
+
+  /* Capa de media (video/iframe) ocupando todo */
+ .slide-hero video.bg-media {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vw;     /* <-- fuerza ancho total real */
+  height: 150%;     /* <-- llena vertical */
+  object-fit: fill;
+  transform: translate(-50%, -50%);
+}
+
+/* enviar overlay-box un nivel por debajo de los controles del carousel */
+.overlay-box {
+  position: absolute;
+  top: 18%;
+  left: 3%;               /* movido un poco más a la izquierda */
+  max-width: 42%;         /* algo más pequeño */
+  background: rgba(93, 223, 255, 0.733);
+  padding: 1rem 1.1rem;   /* reducir padding */
+  border-radius: 8px;
+  color: #fff;
+  z-index: 1; /* bajar para que los controles queden encima */
+}
+
+/* asegurar que el video/medio de fondo quede por detrás */
+.slide-hero .bg-media,
+.slide-hero video.bg-media {
+  z-index: 0;
+}
+
+/* forzar controles por encima */
+.carousel-control-prev,
+.carousel-control-next {
+  z-index: 12; /* mayor que .overlay-box (1) */
+}
+
+/* indicadores (opcional) encima también */
+.carousel-indicators {
+  z-index: 11;
+}
+
+/* Caja de texto igual que Slide 1 */
+.overlay-box {
+  position: absolute;
+  top: 16%;
+  left: 3%;               /* movido un poco más a la izquierda */
+  max-width: 40%;         /* algo más pequeño */
+  background: rgba(81, 192, 219, 0.733);
+  padding: 1rem 1.1rem;   /* reducir padding */
+  border-radius: 8px;
+  color: #fff;
+  z-index: 1; /* bajar para que los controles queden encima */
+}
+  .slide-hero .overlay-box h2,
+  .slide-hero .overlay-box p {
+    color: #fff !important;
+    margin: 0 0 .5rem;
+  }
+  /* Evita click sobre el video si no te interesa interacción */
+  .slide-hero .bg-media {
+    pointer-events: none; /* quítalo si quieres permitir pausar o abrir el player */
+  }
+
+  /* Opcional: transiciones suaves al cambiar de slide */
+ .carousel-item,
+.slide-hero,
+.slide-hero .bg-media,
+.slide-hero video.bg-media {
+  background-color: #000;
+}
+
+/* Quita el fade que causaba el flash blanco */
+.carousel .carousel-item .bg-media {
+  opacity: 1;            /* antes 0 con transición */
+  transition: none;      /* sin animación de opacidad */
+}
+  .carousel .carousel-item.active .bg-media {
+    opacity: 1;
+  }
+
+  /* Logo encima del recuadro del slider */
+.overlay-brand-top {
+  position: absolute;
+  z-index: 3;
+  top: 3%;
+  left: 3%;                                      /* movido a la izquierda */
+  /* tamaño reducido: valores de clamp menores para hacer la imagen un poco más pequeña */
+  width: calc(clamp(100px, 16vw, 260px) - 2px);  /* ligeramente más pequeño */
+  height: auto;
+  pointer-events: none;
+}
+
+/* ajustes responsivos */
+@media (max-width: 992px){
+  .overlay-brand-top{ top: 5%; left: 4%; width: clamp(100px, 30vw, 220px); }
+}
+@media (max-width: 576px){
+  .overlay-brand-top{ top: 4%; left: 5%; width: clamp(90px, 40vw, 200px); }
+  .overlay-box{ max-width: 86%; left: 5%; padding: 0.9rem 1rem; }
+}
+
+/* Justificar textos principales */
+.container p,
+.container .accordion-body p,
+.container .card-content p,
+.overlay-box p {
+  text-align: justify;
+  text-justify: inter-word;
+}
+/* opcional: evitar viudas/rentas cortas */
+.container p {
+  widows: 2;
+  orphans: 2;
+}
+
+/* -----------------------------
+   Ajustes responsivos por dispositivo
+   - Proyector / Laptop (1366×768)
+   - Tablet (≤1024)
+   - Móvil (≤480)
+   -----------------------------*/
+
+/* ---------------- Laptop / Proyector aproximado 1366x768 ---------------- */
+@media only screen and (max-width: 1366px) and (max-height: 768px) {
+  /* Carousel: ligeramente más bajo para proyectores/laptops */
+  .slide-hero, .carousel-item { height: 420px !important; }
+
+  /* Hacer la imagen/video un poco más pequeña (no recortada) */
+  .carousel-item {
+    background-size: 98% auto !important;
+    background-position: center 35% !important; /* sube la imagen para mostrar parte inferior */
+  }
+  .slide-hero .bg-media,
+  .slide-hero video.bg-media { height: 100% !important; width: 100% !important; object-fit: cover; }
+
+  /* Caja de texto: más compacta y desplazada a la izquierda */
+  .overlay-box {
+    top: 14% !important;
+    left: 2.5% !important;
+    max-width: 46% !important;
+    padding: 0.9rem 1rem !important;
+    font-size: 0.98rem;
+  }
+
+  /* Logo más pequeño */
+  .overlay-brand-top { left: 2.5% !important; top: 3.5% !important; width: calc(clamp(90px, 14vw, 220px) - 2px) !important; }
+
+  /* Controles (flechas) encima y tamaño mayor para visibilidad en proyector */
+  @media only screen and (max-width: 1366px) and (max-height: 768px) {
+    .carousel-control-prev, .carousel-control-next {
+      top: 14% !important;
+      width: 3.4rem;
+      height: 3.4rem;
+    }
+  }
+
+
+  /* Panel de filtros: altura máxima para mostrar scroll */
+  #apartadofiltros .card { max-height: 78vh; overflow-y: auto; }
+  #apartadofiltros .filters-card-body { font-size: 0.95rem; }
+}
+
+/* ---------------- Tablet (iPad / pantallas medianas) ---------------- */
+@media only screen and (max-width: 1024px) {
+  .slide-hero, .carousel-item { height: 420px; }
+
+  .overlay-box {
+    top: 12% !important;
+    left: 4% !important;
+    max-width: 58% !important;
+    padding: 0.95rem 1rem;
+    font-size: 0.95rem;
+  }
+  .overlay-brand-top { top: 5% !important; left: 4% !important; width: clamp(90px, 26vw, 200px); }
+
+  .carousel-control-prev, .carousel-control-next {
+    top: 12%;
+    width: 3rem; height: 3rem;
+  }
+
+  /* Si el layout usa columnas, no forzar overflow vertical */
+  #myCarousel .d-flex { height: 420px; align-items: flex-start; }
+
+  /* Filtros: más espacio y scroll */
+  #apartadofiltros .card { max-height: 72vh; overflow-y: auto; }
+  #apartadofiltros .filters-card-body { font-size: 0.94rem; }
+}
+
+/* ---------------- Móvil (pequeñas pantallas) ---------------- */
+@media only screen and (max-width: 480px) {
+  .slide-hero, .carousel-item { height: 320px !important; }
+
+  /* Apilar y adaptar overlay */
+  .overlay-box {
+    position: absolute;
+    top: 8% !important;
+    left: 5% !important;
+    max-width: 88% !important;
+    padding: 0.85rem 0.9rem !important;
+    border-radius: 6px;
+    font-size: 0.92rem;
+  }
+
+  .overlay-brand-top { top: 4% !important; left: 6% !important; width: clamp(70px, 36vw, 160px); }
+
+  .carousel-control-prev, .carousel-control-next {
+    top: 10% !important;
+    width: 2.6rem; height: 2.6rem;
+  }
+
+  /* Indicadores más visibles y accesibles */
+  .carousel-indicators { bottom: 8px; }
+
+  /* Filtros: ocupar ancho y scroll cómodo */
+  #apartadofiltros { padding: 0.25rem; }
+  #apartadofiltros .card { max-height: 60vh; overflow-y: auto; }
+  #apartadofiltros .filters-card-body { font-size: 0.92rem; }
+}
+
+/* ---------------- Ajustes comunes útiles ---------------- */
+/* Forzar que media cover se muestre correctamente y no cause flashes */
+.slide-hero .bg-media,
+.slide-hero video.bg-media { object-fit: cover; width: 100%; height: 100%; }
+
+/* Evitar que overlay supere controles: z-index bajo */
+.overlay-box { z-index: 1; }
+
+/* Controles por encima siempre */
+.carousel-control-prev, .carousel-control-next { z-index: 12; }
+
+/* Ajuste de legibilidad: reducir ligeramente fuente en cajas para tamaños pequeños */
+.overlay-box h2 { font-size: clamp(1.05rem, 2.4vw, 1.6rem); }
+.overlay-box p  { font-size: clamp(0.85rem, 1.8vw, 1rem); }
+
+/* Transiciones suaves en cambios de tamaño */
+.overlay-box, .overlay-brand-top, .carousel-img, .slide-hero .bg-media { transition: all .18s ease; }
+
+/* Si quieres ajustar aún más por resolución exacta (ej. proyectores 1366x768),
+   modifica las variables numéricas dentro de los bloques anteriores. */
+
+
+/* Ajustes específicos iPad / pantallas entre 768px y 1024px */
+@media only screen and (min-width: 768px) and (max-width: 1024px) {
+
+  /* Asegurar altura consistente del carousel en iPad */
+  .slide-hero,
+  .carousel-item {
+    height: 420px !important;
+  }
+
+  /* Overlay: un poco más compacta y desplazada a la izquierda */
+  .overlay-box {
+    top: 12% !important;
+    left: 3% !important;
+    max-width: 40% !important;    /* más pequeña que en escritorio */
+    padding: 0.9rem 1rem !important;
+    border-radius: 8px;
+    font-size: 0.96rem;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+  }
+
+  /* Logo (brand) ligeramente más pequeño y más a la izquierda */
+  .overlay-brand-top {
+    top: 3% !important;
+    left: 2% !important;
+    width: calc(clamp(84px, 14vw, 200px) - 2px) !important;
+  }
+
+  /* Controles: bajarlos para que queden debajo de la overlay-box */
+  .carousel-control-prev,
+  .carousel-control-next {
+    top: 36% !important;      /* sitúa las flechas por debajo de la caja */
+    bottom: auto;
+    width: 3rem;
+    height: 3rem;
+    background: #ffffff;      /* blanco visible */
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    z-index: 12;              /* sobre el media pero visualmente debajo de la caja */
+    transform: none;
+  }
+
+  .carousel-control-prev-icon,
+  .carousel-control-next-icon {
+    filter: none;
+    background-size: 1.1rem 1.1rem;
+  }
+
+  /* Primer slide (inegislider) — que la imagen "encaje" y no se corte abajo */
+  .carousel-inner > .carousel-item:first-child {
+    background-size: cover !important;           /* cubrir contenedor */
+    background-position: center 30% !important;  /* 'sube' la imagen para mostrar la parte inferior */
+    background-repeat: no-repeat !important;
+    height: 420px !important;
+  }
+
+  /* Si el slide usa video como fondo, mantenerlo cover */
+  .slide-hero .bg-media,
+  .slide-hero video.bg-media {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Pequeño ajuste de espaciado para que el texto no quede pegado al logo */
+  .overlay-box h2 { margin-top: 0; margin-bottom: 0.4rem; }
+}
+
+/* Ajuste: bajar ligeramente las flechas del carousel en los diferentes breakpoints */
+
+
+/* iPad (768 - 1024): mantener las flechas por debajo de la overlay-box, un poco más abajo */
+@media only screen and (min-width: 768px) and (max-width: 1024px) {
+  .carousel-control-prev,
+  .carousel-control-next {
+    top: 55% !important;
+  }
+}
+
+
+
+/* Ajuste final para 1366x768: bajar más controles y adaptar la primera imagen para que encaje */
+@media only screen and (width: 1366px) and (height: 768px),
+       only screen and (min-width: 1340px) and (max-width: 1380px) and (min-height: 740px) and (max-height: 780px) {
+  /* Bajar más las flechas (mover hacia abajo) */
+  .carousel-control-prev,
+  .carousel-control-next {
+    top: 50% !important;   /* más abajo que antes */
+    width: 3.6rem !important;
+    height: 3.6rem !important;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+  }
+  .carousel-control-prev { left: 4% !important; right: auto !important; }
+  .carousel-control-next { right: 4% !important; left: auto !important; }
+
+  /* Primera imagen (inegislider): que encaje en todo el contenedor sin perder detalle */
+  .carousel-inner > .carousel-item:first-child,
+  .carousel-item[style*="inegislider.png"] {
+    background-size: cover !important;          /* fit container */
+    background-position: center 70% !important; /* subir la imagen (mostrar más parte inferior) */
+    background-repeat: no-repeat !important;
+    height: 420px !important;                    /* igual altura que otros slides en este breakpoint */
+  }
+
+  /* Si el slide usa <img> en lugar de background, forzarlo a comportarse como fondo */
+  #myCarousel .carousel-img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+  }
+}
+
+/* --- FIX general para laptops/escritorio: flechas bien centradas --- */
+@media (min-width: 992px) {
+  #myCarousel .carousel-control-prev,
+  #myCarousel .carousel-control-next {
+    top: 50% !important;                 /* centradas verticalmente */
+    transform: translateY(-50%);
+    width: 3rem;
+    height: 3rem;
+  }
+
+  #myCarousel .carousel-control-prev {
+    left: 1.5rem !important;             /* solo a la izquierda */
+    right: auto !important;
+  }
+
+  #myCarousel .carousel-control-next {
+    right: 1.5rem !important;            /* solo a la derecha */
+    left: auto !important;
+  }
+}
+
+/* Laptops "bajitas" (1280–1366 ancho, 720–800 alto): un poco más abajo */
+@media (min-width: 992px) and (max-width: 1366px) and (max-height: 800px) {
+  #myCarousel .carousel-control-prev,
+  #myCarousel .carousel-control-next {
+    top: 55% !important;
+  }
+}

@@ -1,0 +1,140 @@
+/*Estilos para el navbar */
+.nav-link {
+  color: aliceblue !important;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.nav-link:hover {
+  background-color: #005fa3;
+  color: white !important;
+}
+
+.nav-link.active {
+  background-color: #ffffff;
+  color: #003057 !important;
+  font-weight: bold;
+}
+
+
+.customPa{
+    text-align: justify;
+    padding-top: 10px;
+  
+  }
+  
+
+.bd-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Estilos para la s ección de la tabla */
+.tabla-indicadores-container {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.tabla-indicadores {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
+  font-size: 0.95rem;
+  background-color: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.tabla-indicadores thead {
+  background-color: #113250;
+  color: white;
+   padding-top:.15rem; padding-bottom:.15rem;
+}
+
+.tabla-indicadores thead th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+}
+
+.tabla-indicadores tbody tr {
+  border-bottom: 1px solid #eee;
+}
+
+.tabla-indicadores tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.tabla-indicadores tbody td {
+  padding: 12px 16px;
+  color: #333;
+}
+
+.tabla-indicadores tbody tr:hover {
+  background-color: #eef5ff;
+  transition: 0.2s ease-in-out;
+}
+
+/* Opcional: estilo por año (si lo necesitas para resaltar por color) */
+.y2022 td {
+
+  color: white; 
+}
+
+.y2023 td {
+
+  color: white;
+}
+
+.y2024 td {
+
+  color: black;
+}
+/* Aplica solo al encabezado de la columna "Año" */
+th:nth-child(2) {
+  padding-left: 3px;
+}
+
+/* Aplica a todas las celdas de año */
+td:nth-child(2) {
+  padding-left: 3px;
+}
+
+/* Hace que el cuerpo del modal sea desplazable si el contenido es grande */
+.modal-xl .modal-body {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+  .table-modal thead th {
+    white-space: normal;               /* permite saltos de línea */
+    overflow-wrap: anywhere;           /* parte palabras muy largas si hace falta */
+    line-height: 1.2;
+    vertical-align: bottom;
+  }
+  /* Alinea números a la derecha */
+  .table-modal td.num { text-align: right; }
+  /* Año sin wrap (si prefieres fijo) */
+  .table-modal td.year { white-space: nowrap; }
+
+/* Estilo “Hoja Metodológica” dentro del modal */
+.hm-section-title{
+  font-weight:700;
+  font-size:1.05rem;
+  border-left:4px solid #198754;
+  padding-left:.5rem;
+  margin:1rem 0 .25rem;
+}
+.hm-block{
+  background:#f8f9fa;
+  border:1px solid #e9ecef;
+  border-radius:.5rem;
+  padding:.75rem .9rem;
+}
+.hm-meta{ color:#6c757d; font-size:.925rem; }
+.hm-table th{ white-space:nowrap; }
+.hm-footnote{ font-size:.85rem; color:#6c757d; }
+
+/* Para formulas */
