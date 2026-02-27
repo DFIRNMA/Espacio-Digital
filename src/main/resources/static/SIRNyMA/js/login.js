@@ -31,7 +31,9 @@
         btn.disabled = true;
         btn.textContent = 'Ingresando...';
 
-        const API_URL = 'http://10.109.1.63:8080/api/usuarios';
+        // Usar ruta relativa local; si no hay un controlador de usuarios, el
+        // fetch fallará y se mostrará un mensaje claro.
+        const API_URL = '/api/usuarios';
 
         // Llamada GET para obtener usuarios y validar localmente.
         // Nota: si el backend ofrece un endpoint de autenticación (POST), preferir ese.

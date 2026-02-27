@@ -13,6 +13,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const alinMdeaCheckbox = document.getElementById("alinMdeaCheckbox");
   const alinOdsCheckbox = document.getElementById("alinOdsCheckbox");
 
+  // URL base de la nueva API
+  
+
+  // Variables globales para almacenar los datos
+  let allData = [];
+  let currentFilteredData = [];
+  let clasificacionesGlobal = [];
+  let procesosGlobal = [];
+  // Agrega más variables globales según los catálogos que necesites cruzar (ods, mdeas, etc.)
+
   // Variables globales
   const params = new URLSearchParams(window.location.search);
   let itemsPerPage = parseInt(15);
@@ -24,9 +34,6 @@ document.addEventListener("DOMContentLoaded", function () {
     currentPage= 1;
     applyFilters();
   })
-
-  let allData = [];
-  let currentFilteredData = [];
 
   let currentSearchTerm = ""; // término activo para <mark>
 
@@ -53,10 +60,6 @@ document.addEventListener("DOMContentLoaded", function () {
 window.renderLocked     = false;  // evita renders mientras aplicamos URL
 window.initialPaintDone = false;  // ya hicimos el primer render “válido”
 
-
-  // ==== PARCHE: globals seguros (evita "is not defined") ====
-let procesosGlobal = window.procesosGlobal || [];
-
 // Filtro por unidad: 'todas' | 'socio' | 'eco'
 let unidadFiltro = 'todas';
 
@@ -70,12 +73,29 @@ function rebuildClasifIndex() {
   clasifIndex = new Map();
   const rows = (window.clasificacionesGlobal || []);
   rows.forEach(row => {
-    const idVar = String(row.idVar);
-    // El campo puede venir como "clasificaciones" (socio) o como string de econ ya mapeada
-    const val = (row.clasificaciones || row.clase || row.clasificacion || "").toString().trim();
-    if (!val) return;
+    // detectar id de variable en múltiples campos posibles
+    const idVar = String(row.id_a || row.id_s || row.idVar || row.id_var || row.id || row.idVarStr || "").trim();
+
+    // posibles lugares donde vienen las clasificaciones
+    const rawVals = row.clasificaciones || row.clase || row.clasificacion || row.valores || row.val || row.items || row.categorias || null;
+
+    if (!rawVals) return;
+
+    // Normalizar a array de strings
+    let vals = [];
+    if (Array.isArray(rawVals)) {
+      vals = rawVals.map(x => (x || "").toString().trim()).filter(Boolean);
+    } else if (typeof rawVals === 'object') {
+      // si viene como objeto con keys/values, intentar extraer nombres
+      vals = Object.values(rawVals).map(x => (x || "").toString().trim()).filter(Boolean);
+    } else {
+      vals = String(rawVals).split(/\r?\n|;|\|/).map(x => x.trim()).filter(Boolean);
+    }
+
+    if (!vals.length) return;
     if (!clasifIndex.has(idVar)) clasifIndex.set(idVar, []);
-    clasifIndex.get(idVar).push(val);
+    const arr = clasifIndex.get(idVar);
+    vals.forEach(v => { if (v && !arr.includes(v)) arr.push(v); });
   });
 }
 
@@ -126,99 +146,7 @@ function rebuildClasifIndex() {
 
   // ==== HELPERS: mapear API /indicadores/ultima al shape local de /api/variables ====
 
-  function mapUltimaVariableToLocal(v, eventosList = []) {
-    // ... (lo que ya tienes)
-    const years = (Array.isArray(eventosList) ? eventosList : [])
-      .map(e => parseInt(String(e.anioEvento ?? e.evento ?? '').trim(), 10))
-      .filter(Number.isFinite);
 
-    const minY = years.length ? Math.min(...years) : (v.anioReferencia || null);
-    const maxY = years.length ? Math.max(...years) : (v.anioReferencia || new Date().getFullYear());
-
-    function safeNameFromUrl(u) {
-      try {
-        if (!u || !/^https?:/i.test(String(u))) return null;
-        const url = new URL(u);
-        return url.searchParams.get("name");
-      } catch { return null; }
-    }
-
-    const codIdenVar =
-      (Array.isArray(v.microdatosList) && v.microdatosList[0]?.campo)
-        ? v.microdatosList[0].campo
-        : safeNameFromUrl(v.url);
-
-      const clasificaciones =
-      Array.isArray(v.clasificacionesList) && v.clasificacionesList.length > 0
-        ? v.clasificacionesList
-            .map(c => c.clase || c.clasificacion || c.nombre || "")
-            .filter(c => c && c.trim() !== "")
-        : [];
-
-          const tieneDatosAbiertos = (v.datosabiertos === true || v.datosAbiertos === true);
-          const datosAbiertosList =
-          Array.isArray(v.datosAbiertosList) ? v.datosAbiertosList : [];
-          
-        // --- MICRODATOS: detectar lista embebida aunque v.microdatos sea false ---
-        var microList = Array.isArray(v.microdatosList) ? v.microdatosList : [];
-
-        var hasMicroEmbedded = false;
-        for (var i = 0; i < microList.length; i++) {
-          var m = microList[i] || {};
-          var tabla = (m.tabla ? String(m.tabla).trim() : '');
-          var campo = (m.campo ? String(m.campo).trim() : '');
-          var urlAcc = !!m.urlAcceso;
-          var urlDesc = !!m.urlDescriptor;
-          var descr = !!m.descriptor;
-
-          if (tabla !== '' || campo !== '' || urlAcc || urlDesc || descr) {
-            hasMicroEmbedded = true;
-            break;
-          }
-        }
-
-        // si v.microdatos es true O hay lista embebida válida → actívalo
-        var relMicroCalc = (v.microdatos === true) || hasMicroEmbedded ? "Sí" : "No";
-
-    return {
-      idVar: v.idS || v.idA || (v.acronimo ? `${v.acronimo}-SD` : "SD"),
-      idPp: v.acronimo || "SD",
-      nomVar: v.variableA || v.variableS || "No disponible",
-      tipoVar: "Primaria",
-      codIdenVar,
-      pregLit: v.pregunta || "-",
-      tema: v.tema1 || null,
-      subtema: v.subtema1 || null,
-      tema2: v.tema2 || null,
-      subtema2: v.subtema2 || null,
-      categoria: v.universo || "-",
-      varAsig: v.variableA || v.variableS || "No disponible",
-      defVar: v.definicion || "-",
-      fuente: v.fuente || "-",
-      metodoCal: v.metodologia || "-",
-      relAbiertos: tieneDatosAbiertos ? "Sí" : "No",
-      relTab: v.tabulados ? "Sí" : "No",
-      relMicro: relMicroCalc,
-      alinMdea: v.mdea ? "Sí" : "No",
-      alinOds: v.ods ? "Sí" : "No",
-      comentVar: v.comentarioA || v.comentarioS || "-",
-
-      vigInicial: minY ? String(minY) : null,
-      vigFinal: years.length ? String(maxY) : "A la fecha",
-
-      _source: "economicas-ultima",
-
-      _microdatosList: microList,
-      _tabuladosList: Array.isArray(v.tabuladosList) ? v.tabuladosList : [],
-      _mdeasList: Array.isArray(v.mdeasList) ? v.mdeasList : [],
-      _odsList: Array.isArray(v.odsList) ? v.odsList : [],
-      _datosAbiertosList: datosAbiertosList,
-      // 👇 NUEVO: incluir las clasificaciones para usarlas como en /api/clasificaciones
-      _clasificacionesList: clasificaciones,
-      _eventosList: Array.isArray(eventosList) ? eventosList : [], // [{evento: 2023}, ...]
-       _anioReferencia: Number.isFinite(v.anioReferencia) ? v.anioReferencia : null
-    };
-  }
 
   // 🌐 Catálogo de indicadores ODS (pull_indicadores_ods)
 let odsIndicadoresCatalog = null;
@@ -227,64 +155,193 @@ async function getOdsIndicadoresCatalog() {
   if (odsIndicadoresCatalog) return odsIndicadoresCatalog;
 
   try {
-    const res  = await fetch('/api/ods_indicadores');   // <- tu API
+    // Intentar el endpoint local `/api/ods`. Si tu backend tuviera uno
+    // específico de indicadores, modifícalo aquí.
+    const res  = await fetch('/api/ods');
     const data = await res.json();
     odsIndicadoresCatalog = Array.isArray(data) ? data : [];
   } catch (err) {
-    console.error('Error cargando /api/ods_indicadores:', err);
+    console.error('Error cargando /api/ods:', err);
     odsIndicadoresCatalog = [];
   }
 
   return odsIndicadoresCatalog;
 }
 
+const API_BASE_URL = "/api"; // Ya no usamos la IP, usamos ruta relativa
 
-  async function fetchVariablesDesdeUltima() {
-    const urlUltima = "http://10.109.1.13:1024/api/indicadores/ultima";
-    const res = await fetch(urlUltima);
-    if (!res.ok) throw new Error(`ultima respondió ${res.status}`);
-    const payload = await res.json();
+async function cargarDatosIniciales() {
+  try {
+    const loader = document.getElementById("loader");
+    const mainContent = document.getElementById("mainContent");
+    
+    if (loader) loader.style.display = "flex";
+    if (mainContent) mainContent.style.display = "none";
 
-    const registros = Array.isArray(payload) ? payload : [payload];
-    const out = [];
-    for (const reg of registros) {
-      const lista = Array.isArray(reg.variableList) ? reg.variableList : [];
-      const evs = Array.isArray(reg.eventosList) ? reg.eventosList : [];
-      for (const v of lista) out.push(mapUltimaVariableToLocal(v, evs));
-    }
-    return out;
-  }
+    // 1. Peticiones a las nuevas APIs (Sin "eventos")
+    const [
+      variablesRes,
+      clasificacionesRes,
+      procesosRes,
+      fuentesRes,
+      odsRes,
+      mdeasRes
+    ] = await Promise.all([
+      fetch(`${API_BASE_URL}/variables`),
+      fetch(`${API_BASE_URL}/clasificaciones`),
+      fetch(`${API_BASE_URL}/procesos`),
+      fetch(`${API_BASE_URL}/fuentes`),
+      fetch(`${API_BASE_URL}/ods`),
+      fetch(`${API_BASE_URL}/mdeas`)
+    ]);
 
-  function mergeVariablesLocalYUltima(locales = [], ultima = []) {
-    const map = new Map();
-    // mete primero ultima (para que luego locales "pisen" si hay misma idVar)
-    for (const v of (ultima || [])) if (v) {
-      map.set(v.idVar || v.idS || v.idA, v);
-    }
-    for (const v of (locales || [])) if (v && v.idVar) {
-      map.set(v.idVar, v);
-    }
-    return Array.from(map.values());
-  }
+    // Validar respuestas
+    if (!variablesRes.ok) throw new Error("Fallo al cargar la API de variables");
 
-  // 🔁 Integrar las clasificaciones de variables económicas
-function mergeClasificacionesEconomicas(variablesUltima) {
-  const ecoClasifs = [];
-
-  (variablesUltima || []).forEach(v => {
-    if (Array.isArray(v._clasificacionesList) && v._clasificacionesList.length) {
-      v._clasificacionesList.forEach(cl => {
-        ecoClasifs.push({
-          idVar: v.idVar,
-          clasificaciones: cl,
-          _source: "economicas-ultima"
-        });
+    const variablesRaw = await variablesRes.json();
+    window.clasificacionesGlobal = await clasificacionesRes.json();
+    window.procesosGlobal = await procesosRes.json();
+    // poblar select de procesos relacionado con unidades socio/eco
+    if (processSelect) {
+      processSelect.innerHTML = "";
+      const unidadKeywords = ['sociodemograficas','económicas'];
+      (window.procesosGlobal || []).forEach(p => {
+        const u = String(p.unidad || '').toLowerCase();
+        if (unidadKeywords.some(k => u.includes(k))) {
+          const opt = document.createElement('option');
+          opt.value = String(p.acronimo || p.idPp || '');
+          opt.text = p.pp || p.proceso || p.acronimo || opt.value;
+          processSelect.appendChild(opt);
+        }
       });
     }
-  });
+    window.fuentesGlobal = await fuentesRes.json();
+    window.odsGlobal = await odsRes.json();
+    window.mdeasGlobal = await mdeasRes.json();
 
-  // Fusiona con las ya existentes (socio)
-  window.clasificacionesGlobal = (window.clasificacionesGlobal || []).concat(ecoClasifs);
+    // Limpiamos eventosGlobal por completo para evitar errores
+    window.eventosGlobal = [];
+
+    // --- Normalizar procesos: asegurar campos idPp, acronimo y pp para todo el código ---
+    window.procesosGlobal = (window.procesosGlobal || []).map(p => {
+      const acr = p.acronimo || p.acr || p.idPp || p.id_pp || p.codigo || p.id || null;
+      const idPp = p.idPp || p.id_pp || acr || p.id || null;
+      const pp = p.pp || p.proceso || p.nombre || p.nombreProceso || p.procesoNombre || acr || "No disponible";
+      return Object.assign({}, p, { acronimo: String(acr || '').trim(), idPp: String(idPp || '').trim(), pp: pp });
+    });
+
+    // 2. MAPEO: Adaptamos el nuevo JSON a tu estructura (incluye tema2/subtema2 y normalizaciones)
+    allData = (variablesRaw || []).map(v => {
+      const idVarRaw = v.id_s || v.id_a || v.idVar || v.id || v.acronimo || '';
+      // intentar detectar idPp / proceso asociado en el objeto variable
+      const idPpRaw = v.idPp || v.id_pp || v.id_proceso || v.procesoAcronimo || v.proceso || v.acronimoPp || v.acronimo || v.idP || '';
+      return {
+        // Identificador consistente como string
+        idVar: String(idVarRaw).trim(),
+        idPp: String(idPpRaw).trim(),
+        id_fuente: v.id_fuente,
+        acronimo: v.acronimo || "",
+
+        // Priorizamos el nombre sociodemográfico, si no existe usamos el económico
+        variable: v.variable_s || v.variable_a || v.variable || "Nombre no disponible",
+
+        pregunta: v.pregunta || v.pregunta_s || v.pregunta_a || "Sin pregunta definida",
+        definicion: v.definicion || v.definicion_s || v.definicion_a || "Sin definición",
+        universo: v.universo || "No especificado",
+
+        // Mapeo de jerarquía de temas: tema1/subtema1 y tema2/subtema2 (múltiples nombres posibles)
+        tema: v.tema1 || v.tema_1 || v.temaPrincipal || v.tema || "-",
+        subtema: v.subtema1 || v.subtema_1 || v.subtemaPrincipal || v.subtema || "-",
+        tema2: v.tema2 || v.tema_2 || v.temaSecundario || v.temaSegundo || v.tema_alterno || "",
+        subtema2: v.subtema2 || v.subtema_2 || v.subtemaSecundario || v.subtemaSegundo || "",
+        tematica: v.tematica || v.categoria || "-",
+
+        // El nuevo periodo es anio_referencia
+        anio_referencia: v.anio_referencia || v.anioReferencia || "No disponible",
+        url: v.url || v.liga || null,
+
+        // Banderas booleanas (ahora vienen como true/false desde BD)
+        ods: v.ods === true,
+        mdea: v.mdea === true,
+        tabulados: v.tabulados === true,
+        datosabiertos: v.datosabiertos === true,
+        microdatos: v.microdatos || v.microdato || "No",
+
+        // Comentarios
+        comentario: v.comentario_s || v.comentario_a || v.comentario || "",
+
+        // Campos auxiliares originales para debug/uso posterior
+        _raw: v
+      };
+    });
+
+    // 2.b Reconstruir índice de clasificaciones y anexar un campo corto `clasificacion` a cada variable
+    rebuildClasifIndex();
+    allData.forEach(v => {
+      const list = clasifIndex.get(String(v.idVar)) || [];
+      v.clasificacion = list.length ? String(list[0]) : ""; // primera clasificacion como campo rápido
+    });
+
+    // 2.c Poblar el select de procesos (normalizado) para la UI
+    if (processSelect) {
+      processSelect.innerHTML = "";
+
+      // conjunto de idPp / acrónimos que tienen al menos una variable
+      const ppsConVars = new Set(
+        allData
+          .map(v => String(v.idPp || v.acronimo || "").trim())
+          .filter(x => x)
+      );
+
+      const procs = (procesosGlobal || [])
+        .filter(p => {
+          const id = String(p.idPp || p.acronimo || "").trim();
+          if (!ppsConVars.has(id)) return false;           // sólo procesos con vars
+          const u = String(p.unidad || "").toLowerCase();  // unidad socio/eco
+          return u.includes("sociodemogra") || u.includes("económica");
+        })
+        .slice()
+        .sort((a, b) =>
+          String(a.pp || a.acronimo || "")
+            .localeCompare(String(b.pp || b.acronimo || ""))
+        );
+
+      procs.forEach(p => {
+        const opt = document.createElement("option");
+        opt.value = String(p.idPp || p.acronimo || p.id || "").trim();
+        opt.text =
+          p.pp || p.proceso || p.acronimo || opt.value || "Sin nombre";
+        processSelect.appendChild(opt);
+      });
+    }
+
+    // 3. Renderizamos y activamos paginación
+    currentFilteredData = [...allData];
+    
+    renderPage(currentFilteredData, currentPage);
+    setupPagination(currentFilteredData);
+    
+    if (loader) loader.style.display = "none";
+    if (mainContent) mainContent.style.display = "";
+    
+    // Actualizar contador en la UI si existe
+    const totalCount = document.getElementById("totalCount"); 
+    if (totalCount) totalCount.textContent = currentFilteredData.length;
+
+    // --- AGREGA ESTO PARA OCULTAR EL SPINNER DEL CONTADOR ---
+    // (Asegúrate de poner el ID correcto que tenga el spinner en tu HTML)
+    hideCounterSpinner();
+
+  } catch (error) {
+    console.error("Error al cargar las APIs unificadas:", error);
+    const loader = document.getElementById("loader");
+    if (loader) {
+       loader.innerHTML = `
+          <div class="alert alert-danger m-4">
+              <strong>Error de conexión:</strong> ${error.message}
+          </div>`;
+    }
+  }
 }
 
   // Devuelve la "base" de variables para poblar el select de temáticas
@@ -354,7 +411,7 @@ function allowedPpsPorUnidad() {
     const esEco = p._source === 'economicas';
     if (unidadFiltro === 'eco' && !esEco) return;
     if (unidadFiltro === 'socio' && esEco) return;
-    base.add(p.idPp);
+    base.add(p.acronimo);
   });
   return base;
 }
@@ -510,25 +567,6 @@ function hasDatosAbiertos(v) {
       _unidad: item.unidad || null,
     };
   }
-
-  async function fetchProcesosEconomicas() {
-    const urlProcesosEco = "http://10.109.1.13:1024/api/procesos/buscar?unidad=" +
-                           encodeURIComponent("Unidad de Estadísticas Económicas");
-    const res = await fetch(urlProcesosEco);
-    if (!res.ok) throw new Error("procesos Económicas respondió " + res.status);
-    const data = await res.json();
-    return (Array.isArray(data) ? data : []).map(mapEconomicasProcesoToLocal);
-  }
-
-  function mergeProcesos(locales, economicas) {
-    const map = new Map();
-    // primero eco
-    for (const p of economicas) map.set(p.idPp, p);
-    // pisa con locales (si quieres priorizar locales)
-    for (const p of locales)   map.set(p.idPp, p);
-    return Array.from(map.values());
-  }
-
 
   // Helperrs de ODS
 // === util de extracción (1..17) ===
@@ -1341,98 +1379,8 @@ showVariablesSkeleton(8);
 showCounterSpinner();
 showListSpinner();
 
-Promise.all([
-  fetch("/api/proceso").then(r => r.json()),
-  fetchProcesosEconomicas(),                 // procesosEco
-  fetch("/api/variables").then(r => r.json()),
-  fetchVariablesDesdeUltima(),               // ← variablesUltima (económicas mapeadas)
-  fetch("/api/eventos").then(r => r.json()),
-  fetch("/api/clasificaciones").then(r => r.json())
-])
-.then(([procesosLocal, procesosEco, variablesLocal, variablesUltima, eventos, clasificaciones]) => {
-  // 1) Procesos (merge locales + eco)
-  procesosGlobal = mergeProcesos(procesosLocal, procesosEco);
-
-  // 2) Globals auxiliares
-  window.eventosGlobal = eventos;
-
-  // 3) Clasificaciones base (socio)
-  window.clasificacionesGlobal = clasificaciones;
-
-  // 4) Variables (merge socio + eco) y orden A-Z si quieres
-  allData = sortVariablesAZ(
-    mergeVariablesLocalYUltima(variablesLocal, variablesUltima)
-  );
-
-  // 5) Armar sets por unidad
-  socioSet = new Set(
-    (procesosGlobal || [])
-      .filter(p => p._source !== "economicas")
-      .map(p => p.idPp)
-  );
-  ecoSet = new Set(
-    (procesosGlobal || [])
-      .filter(p => p._source === "economicas")
-      .map(p => p.idPp)
-  );
-
-  // 6) ⚠️ Mezclar clasificaciones de económicas en el arreglo global
-  mergeClasificacionesEconomicas(variablesUltima);
-  window.clasificacionesGlobal = clasificacionesGlobal;
-  rebuildClasifIndex(); 
-
-  // 7) Poblar select de procesos solo con los que tienen variables
-  const idPpConVars = new Set(allData.map(v => v.idPp).filter(Boolean));
-  processSelect.innerHTML = "";
-  procesosGlobal
-    .filter(p => idPpConVars.has(p.idPp))
-    .sort((a, b) => (a.pp || "").localeCompare(b.pp || ""))
-    .forEach(proc => {
-      const opt = document.createElement("option");
-      opt.value = proc.idPp;
-      opt.textContent = `• ${proc.pp} · [${proc.idPp}]`;
-      processSelect.appendChild(opt);
-    });
-
-  // 8) Si ya hay unidad marcada, aplicar inmediatamente
-  if (radioSocio?.checked || radioEco?.checked) {
-    onUnidadChange();
-  }
-
-  // 9) Periodos y temáticas iniciales
-  populatePeriodFilters([]);
-  repoblarTematicas();
-
-  // 10) Si hay tema ya seleccionado, filtra el select de procesos por ese tema (unidad + tema)
-  const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática") ? temaSelect.value : "";
-  filtrarProcessSelectPorTema(temaActual);
-
-  // 11) Aplica filtros de URL (puede pintar)
-  aplicarFiltroDesdeURL();
-
-  // 12) Primer render si aún no se pintó
-  currentFilteredData = [...allData];
-  currentPage = 1;
-  if (!window.initialPaintDone && !window.renderLocked) {
-    renderPage(currentFilteredData, currentPage);
-    setupPagination(currentFilteredData);
-    updateVariableCounter(allData.length);
-    window.initialPaintDone = true;
-  }
-  hideProcessSkeleton();
-  hideVariablesSkeleton();
-  hideCounterSpinner();
-  hideListSpinner();
-})
-.catch(err => {
-  console.error("Error en carga inicial:", err);
-  hideProcessSkeleton();
-  hideVariablesSkeleton();
-  hideCounterSpinner();
-  hideListSpinner();
-  container.innerHTML = `<div class="alert alert-danger">No se pudo cargar la información inicial.</div>`;
-});
-
+// Llamamos a la nueva función centralizada para cargar la página
+  cargarDatosIniciales();
 // 1. Cargar eventos antes de llamar a renderPage
 // --- Helpers: leer periodicidad, rango y último año por proceso ---
 // Deshabilitar anchors en el nodo destacado (amarillo) a nivel global:
@@ -1780,7 +1728,7 @@ function matchesSearchTerm(v, needle) {
   if (f) return true;
 
   // Clasificaciones
-  const list = clasifIndex.get(String(v.idVar)) || [];
+  const list = clasifIndex.get(String(v.id_a)) || [];
   return list.some(c => (c || "").toLowerCase().includes(n));
 }
 
@@ -1834,25 +1782,24 @@ function renderPage(data, page) {
     // 2. Filtrar los eventos que pertenecen a esta variable
       // ...dentro de renderPage, antes de construir card.innerHTML
     // dentro de renderPage, por cada variable...
-    const evs = Array.isArray(window.eventosGlobal) ? window.eventosGlobal : [];
-    const eventosRelacionados = evs.filter(ev => String(ev.idVar) === String(variable.idVar));
-
-    // asegura que SIEMPRE existirá timelineHTML
+    // Nueva presentación del periodo sin depender de la tabla eventos
     let timelineHTML = "";
-    try {
-      timelineHTML = construirLineaDeTiempoVariable(variable, eventosRelacionados);
-    } catch (e) {
-      console.warn("Fallo timeline; uso fallback neutral:", e);
-      // fallback mínimo si tu helper no está disponible
-      const label = (variable.vigInicial || variable.vigFinal) 
-        ? `${variable.vigInicial || "?"} - ${variable.vigFinal || "?"}`
-        : "Sin periodo";
-      timelineHTML = `<div class="small text-muted">${label}</div>`;
+    if (variable.vigInicial || variable.vigFinal) {
+      const anioInicio = variable.vigInicial || "?";
+      const anioFin = variable.vigFinal || "A la fecha";
+      
+      timelineHTML = `
+        <div class="mt-3 p-2 bg-light border rounded" style="display: inline-block;">
+          <small class="text-muted">
+            <i class="bi bi-calendar3 me-1"></i> 
+            <strong>Periodo de información disponible:</strong> ${anioInicio} - ${anioFin}
+          </small>
+        </div>
+      `;
     }
-
     // 3. Fuentes dinámicas
 
-    const proceso = procesosGlobal.find(proc => proc.idPp === variable.idPp);
+    const proceso = procesosGlobal.find(proc => proc.acronimo);
 
     // Badge de proceso: acrónimo si es económicas; idPp si es sociodemográficas
     // dentro de renderPage, donde defines los badges:
@@ -1912,17 +1859,61 @@ function renderPage(data, page) {
 
 
     // Campos que quieres resaltar (usa el original si no hay término)
-    const hVarAsig  = variable.varAsig  ? highlightTerm(variable.varAsig,  term) : "";
-    const hPregLit  = variable.pregLit  ? highlightTerm(variable.pregLit,  term) : "";
-    const hDefVar   = variable.defVar   ? highlightTerm(variable.defVar,   term) : "";
-    const hNomVar   = variable.nomVar   ? highlightTerm(variable.nomVar,   term) : "";
-    const hCategoria= variable.categoria? highlightTerm(variable.categoria,term) : "";
+    const hVarAsig  = variable.variable  ? highlightTerm(variable.variable,  term) : "";
+    const hPregLit  = variable.pregunta  ? highlightTerm(variable.pregunta,  term) : "";
+    const hDefVar   = variable.definicion   ? highlightTerm(variable.definicion,   term) : "";
+    const hNomVar   = variable.variable   ? highlightTerm(variable.variable,   term) : "";
+    const hCategoria= variable.tematica? highlightTerm(variable.tematica,term) : "";
     const hTema     = variable.tema     ? highlightTerm(variable.tema,     term) : "";
     const hSubtema  = variable.subtema  ? highlightTerm(variable.subtema,  term) : "";
     const hTema2    = variable.tema2    ? highlightTerm(variable.tema2,    term) : "";
     const hSubtema2 = variable.subtema2 ? highlightTerm(variable.subtema2, term) : "";
 
+// Dentro de tu renderPage, al construir la tarjeta (card):
 
+// 1. Mostrar el nuevo año de referencia (reemplazando al timeline/eventos)
+const periodoHTML = `
+  <div class="mt-2 text-muted" style="font-size: 0.85rem;">
+    <i class="bi bi-calendar3"></i> <strong>Año de Referencia:</strong> ${variable.anio_referencia}
+  </div>
+`;
+
+// 2. Mostrar badges basados en los booleanos de la BD
+// Construcción de Badges
+    let badgesHTML = "";
+
+    // Badge Gris: Muestra el Acrónimo o el ID de la variable en lugar del guion
+    const identificador = variable.acronimo || variable.idVar || "Sin ID";
+    badgesHTML += `<span class="badge bg-secondary me-1">${identificador}</span>`;
+
+    // Tema y Subtema (Opcional, si quieres que salgan en otro color)
+    if (variable.tema && variable.tema !== "-") {
+      badgesHTML += `<span class="badge bg-primary me-1">${variable.tema}</span>`;
+    }
+
+    // Badges booleanos (ODS, MDEA, etc.)
+    if (variable.ods) {
+      badgesHTML += `<span class="badge bg-success me-1" title="Objetivos de Desarrollo Sostenible">ODS</span>`;
+    }
+    if (variable.mdea) {
+      badgesHTML += `<span class="badge bg-info text-dark me-1" title="Medio Ambiente">MDEA</span>`;
+    }
+    if (variable.tabulados) {
+      badgesHTML += `<span class="badge bg-dark me-1">Tabulados</span>`;
+    }
+    if (variable.datosabiertos) {
+      badgesHTML += `<span class="badge bg-light text-dark border me-1">Datos Abiertos</span>`;
+    }
+    if (variable.microdatos && variable.microdatos.toLowerCase() !== "no") {
+      badgesHTML += `<span class="badge bg-warning text-dark me-1">Microdatos</span>`;
+    }
+
+// 3. Comentarios
+const comentariosHTML = variable.comentario 
+  ? `<div class="mt-2 text-secondary" style="font-size: 0.85rem;">
+       <strong>Comentario:</strong> ${variable.comentario}
+     </div>` 
+  : "";
    
             card.innerHTML = `
             <div class="accordion-item shadow-sm rounded-3 border-0 ${unitCls}">
@@ -1954,7 +1945,7 @@ function renderPage(data, page) {
                           <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Respuestas posibles de la pregunta de captación. Si la pregunta es abierta, este campo puede no aplicarse">
                             <i class="bi bi-question-circle me-1"></i>Clasificación:</span>
                           <div class="ps-3">
-                            ${getClasificacionesPorVariableHighlighted(variable.idVar, term)} <!-- 👈 (ver paso 4) -->
+                            ${getClasificacionesPorVariableHighlighted(variable.idVar || variable.id_a, term)} <!-- 👈 (ver paso 4) -->
                           </div>
                         </div>
 
@@ -2088,13 +2079,6 @@ function renderPage(data, page) {
                               </div>
 
                     </div>
-                        <!-- Botón externo: pasa idVar por query a generador -->
-                          <a class="btn btn-sm btn-gen-indicator"
-                            href="https://inegi-indicator-gen.lovable.app/?idVar=${encodeURIComponent(variable.idVar)}"
-                            target="_blank" rel="noopener noreferrer"
-                            title="Abrir generador de indicadores">
-                            <i class="bi bi-box-arrow-up-right me-1"></i> Generar idea de indicador
-                          </a>
                 </div>
             </div>
         </div>
@@ -2957,7 +2941,7 @@ document.addEventListener("click", async function (e) {
               <div class="ta-right-buttons">
                 ${botonDerecha}
               </div>
-               <div >
+              <div class="tabulado-info text-end">
                 ${metaLinea}
               </div>
             </div>
@@ -3093,8 +3077,8 @@ document.addEventListener("click", async function (e) {
 
 
         return `
-          <div class="tabulado-card micro-card">
-           
+          <div class="tabulado-card">
+            
             <div class="tabulado-actions">
               <!-- IZQUIERDA: Página Microdatos INEGI -->
               <div class="ta-left">
@@ -3109,9 +3093,7 @@ document.addEventListener("click", async function (e) {
                 <div class="ta-right-buttons">
                   ${botonDerecha}
                 </div>
-                <div class="tabulado-info text-end">
-                  ${metaLinea}
-                </div>
+                ${ubicacion}
               </div>
             </div>
           </div>
@@ -3159,8 +3141,7 @@ document.addEventListener("click", async function (e) {
         > <i class="bi bi-hdd-network me-1"></i></span>
         ${
           info.nomCampo
-            ? `<span
-               >
+            ? `<span>
                 ${info.nomCampo}
               </span>`
             : `No disponible`
@@ -3219,7 +3200,9 @@ document.addEventListener("click", async function (e) {
     const idVar  = datosTrigger.getAttribute("data-idvar");
 
   function getVariableByIdVar(id) {
-    return (Array.isArray(allData) ? allData : []).find(v => String(v.idVar) === String(id));
+    return (Array.isArray(allData) ? allData : []).find(
+      (v) => String(v.idVar) === String(id)
+    );
   }
 
   // Detectores de tipo de archivo
@@ -3260,7 +3243,7 @@ document.addEventListener("click", async function (e) {
           btnText = "EXCEL";
         } else if (isPdf(file)) {
           btnClass = "btn-pdf";
-          btnIcon = `<i class="bi bi-filetype-pdf me-1"></i>`;
+          btnIcon = `<i class="bi bi-file-earmark-pdf me-1"></i>`;
           btnText = "PDF";
         } else if (isZip(file)) {
           btnClass = "btn-zip";
@@ -3576,7 +3559,7 @@ if (e.target.closest(".badge-ods")) {
         modalTitle.textContent = `ODS ${objNum}. ${objNom}`;
       }
 
-      const varTitle = fmt(variable.varAsig || idVar);
+      const varTitle = fmt((variable?.varAsig) || idVar);
 
        // 👉 Para evitar repetir la misma meta N veces en el modal
       const metasVistas = new Set();
@@ -3602,10 +3585,16 @@ if (e.target.closest(".badge-ods")) {
             let indicadorBlock = "";
             if (hasValidIndicador(o.indicador)) {
               const indCode = cleanUnderscores(formatOdsComposite(o.indicador));
-              const indName = cleanUnderscores(o.indicadorNombre || "");
+              const nameIndic = getIndicadorNameFromCatalog(
+                odsNumber,
+                o.meta,
+                o.indicador,
+                catalogIndic
+              );
+
               indicadorBlock = `
-                <div class="small mb-1"><strong>Indicador ${indCode}:</strong></div>
-                ${indName ? `<div class="small mb-1">${indName}</div>` : ""}`;
+                <div class="small mb-1"><strong>${indCode}</strong></div>
+                ${nameIndic ? `<div class="small mb-1">${nameIndic}</div>` : ""}`;
             }
 
             // Si NO hay meta (porque es duplicada) y NO hay indicador, no pintamos nada
@@ -3763,34 +3752,29 @@ document.addEventListener("DOMContentLoaded", function () {
 // ---- Nota de fuente al final de la página (texto pequeño, no altera layout) ----
 
 // Si decides conservar ese bloque, ajústalo así:
-fetch('/api/clasificaciones')
-  .then(res => res.json())
-  .then(clasificaciones => {
-    clasificacionesGlobal = clasificaciones;
-    return fetch('/api/eventos').then(res => res.json());
-  })
-  .then(eventos => {
-    eventosGlobal = eventos;
-    // Solo re-render si ya hicimos el primer pintado y SIN romper filtros
-    if (window.initialPaintDone && !window.renderLocked) { 
-      const base = (currentFilteredData && currentFilteredData.length) ? currentFilteredData : allData;
-      renderPage(base, currentPage);
-      setupPagination(base);
-    }
-  })
-  .catch(console.error);
-
 
 function getClasificacionesPorVariableHighlighted(idVar, term) {
-  const clasifs = clasificacionesGlobal
-    .filter(c => c.idVar === idVar)
-    .map(c => c.clasificaciones)
-    .filter(val => val && val.trim() !== '' && val.trim() !== '-');
+  // Buscar entradas del catálogo que pertenezcan a esta variable
+  const matches = (clasificacionesGlobal || []).filter(c => {
+    const candidateIds = [c.id_a, c.id_s, c.idVar, c.id_var, c.id, c.idVarStr, c.variableId];
+    return candidateIds.some(x => String(x || '').trim() === String(idVar || '').trim());
+  });
 
-  if (!clasifs.length) return '<span class="text-muted">Sin clasificación</span>';
-  const html = clasifs
-    .map(c => `<li>${term ? highlightTerm(c, term) : c}</li>`)
-    .join('');
+  const values = [];
+  matches.forEach(c => {
+    const raw = c.clasificaciones || c.clase || c.clasificacion || c.valores || c.val || c.items || c.categorias || null;
+    if (!raw) return;
+    if (Array.isArray(raw)) {
+      raw.forEach(x => { const s = (x||'').toString().trim(); if (s && !values.includes(s)) values.push(s); });
+    } else if (typeof raw === 'object') {
+      Object.values(raw).forEach(x => { const s = (x||'').toString().trim(); if (s && !values.includes(s)) values.push(s); });
+    } else {
+      String(raw).split(/\r?\n|;|\|/).map(x => x.trim()).filter(Boolean).forEach(x => { if (!values.includes(x)) values.push(x); });
+    }
+  });
+
+  if (!values.length) return '<span class="text-muted">Sin clasificación</span>';
+  const html = values.map(c => `<li>${term ? highlightTerm(c, term) : c}</li>`).join('');
   return `<ul class="mb-0 ps-3">${html}</ul>`;
 }
 
@@ -3798,12 +3782,8 @@ function getClasificacionesPorVariableHighlighted(idVar, term) {
 
 
 // Espera al menos 1000ms antes de mostrar el contenido principal
-window.addEventListener("DOMContentLoaded", function() {
-  setTimeout(function() {
-    document.getElementById("loader").style.display = "none";
-    document.getElementById("mainContent").style.display = "";
-  }, 2000);
-});
+document.getElementById("loader").style.display = "none";
+document.getElementById("mainContent").style.display = "";
 
 // Resaltar término de búsqueda en los resultados
 function highlightTerm(text, term) {

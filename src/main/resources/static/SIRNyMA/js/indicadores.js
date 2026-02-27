@@ -195,11 +195,23 @@ function buildTableHTML(rows) {
 // --- Fin Utils ---
 
 document.addEventListener("DOMContentLoaded", function () {
- fetch('/api/indicadores_ambientales')
-  .then(res => res.json())
-  .then(data => {
-    indicadoresData = data;
-  });
+ // Intentamos cargar indicadores desde `/api/indicadores_ambientales` y
+ // si no existe, usamos `/api/ods` como fallback (ajusta según tu backend)
+ (async function loadIndicadores() {
+   try {
+     const res = await fetch('/api/indicadores_ambientales');
+     if (!res.ok) throw new Error('no disponible');
+     indicadoresData = await res.json();
+   } catch (e) {
+     try {
+       const r2 = await fetch('/api/ods');
+       indicadoresData = await r2.json();
+     } catch (e2) {
+       console.error('No se pudieron cargar indicadores:', e, e2);
+       indicadoresData = [];
+     }
+   }
+ })();
 
 
   
