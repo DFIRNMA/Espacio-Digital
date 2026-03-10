@@ -79,9 +79,11 @@ function normalizarProceso(item) {
   // 2. Descripción (Objetivo o Pobjeto)
   const desc = (item.objetivo || item.pobjeto || "Sin descripción disponible").trim();
 
-  // 3. Fechas
-  const inicio = item.inicio ? String(item.inicio).substring(0, 4) : "ND";
-  const fin = item.fin ? String(item.fin).substring(0, 4) : "ND";
+  // 3. Fechas (guardamos crudos para mostrar completos)
+  const rawInicio = item.inicio || "";
+  const rawConclusion = item.conclusion || item.fin || "";
+  const inicioFmt = rawInicio ? String(rawInicio) : "ND";
+  const conclusionFmt = rawConclusion ? String(rawConclusion) : "ND";
 
   return {
     idPp: id,
@@ -89,7 +91,10 @@ function normalizarProceso(item) {
     unidadOrigen: item.unidad || "Desconocida", // Guardamos para debug
     estatus: item.estatus || "Desconocido",
     periodicidad: item.periodicidad || "No disponible",
-    vigencia: `${inicio} - ${fin}`,
+    // Campos nuevos de la entidad actualizada
+    inicio: rawInicio,
+    conclusion: rawConclusion,
+    vigencia: `${inicioFmt} - ${conclusionFmt}`,
     descPp: desc,
     objetivo: item.objetivo,
     gradoMadur: (item.iin && item.iin.toLowerCase().includes('s')) ? "Información de Interés Nacional" : null,
@@ -145,8 +150,20 @@ async function cargarDatosUnidad(tipoUnidad, container) {
     let procesosMostrados = procesosListos; // Los que realmente se mostrarán
     
     if (tipoUnidad === 'eco') {
-      // Regla Económicas: Ocultar si NO tienen variables (> 0)
-      procesosMostrados = procesosListos.filter(p => (conteoGlobal[p.idPp] || 0) > 0);
+      // Regla Económicas: Ocultar si NO tienen variables NI imagen
+      const comprobaciones = procesosListos.map(async (p) => {
+        const tieneVars = (conteoGlobal[p.idPp] || 0) > 0;
+        let tieneImagen = false;
+        try {
+          const res = await fetch(`/assets/${p.idPp}.png`, { method: 'HEAD' });
+          tieneImagen = res.ok;
+        } catch (e) {
+          // No tiene imagen
+        }
+        return (tieneVars || tieneImagen) ? p : null;
+      });
+      const resultados = await Promise.all(comprobaciones);
+      procesosMostrados = resultados.filter(p => p !== null);
       
     } else if (tipoUnidad === 'socio') {
       // Regla Sociodemográficas: Ocultar si NO tienen imagen (.png)
@@ -171,6 +188,7 @@ async function cargarDatosUnidad(tipoUnidad, container) {
     const conVariables = procesosMostrados.filter(p => (conteoGlobal[p.idPp] || 0) > 0).length; // Solo los mostrados
     let sumaVariables = 0;
     procesosMostrados.forEach(p => { sumaVariables += (conteoGlobal[p.idPp] || 0); });
+
 
     // 7. Actualizar UI Global
     animateCountTo('#scUnidades', 1);
@@ -321,7 +339,7 @@ function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
   });
   document.getElementById('iinCheck')?.addEventListener('change', aplicar);
 
-  // botón para resetear filtros
+   // botón para resetear filtros
   const resetBtn = document.getElementById('resetFiltrosBtn');
   if (resetBtn) {
     resetBtn.addEventListener('click', () => {
@@ -363,7 +381,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if(seccion) seccion.hidden = true;
   
   btnSocio?.addEventListener("click", () => {
-    // si ya está seleccionada, la deseleccionamos
+   // si ya está seleccionada, la deseleccionamos
     if (btnSocio.classList.contains('card-selected')) {
       btnSocio.classList.remove('card-selected');
       if (seccion) seccion.hidden = true;
@@ -377,7 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnEco?.addEventListener("click", () => {
-    if (btnEco.classList.contains('card-selected')) {
+       if (btnEco.classList.contains('card-selected')) {
       btnEco.classList.remove('card-selected');
       if (seccion) seccion.hidden = true;
       if (container) container.innerHTML = '';

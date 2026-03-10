@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "iin",
     "estatus",
     "ipi",
-    "comentario_s",
-    "comentario_a"
+    "inicio",
+    "conclusion"
 })
 public class entityProcesos {
 
@@ -56,11 +56,11 @@ public class entityProcesos {
     @Column(name = "ipi", columnDefinition = "text")
     private String ipi;
 
-    @Column(name = "comentario_s", columnDefinition = "text")
-    private String comentario_s;
+    @Column(name = "inicio", columnDefinition = "text")
+    private String inicio;
 
-    @Column(name = "comentario_a", columnDefinition = "text")
-    private String comentario_a;
+    @Column(name = "conclusion", columnDefinition = "text")
+    private String conclusion;
 
     // --- Getters y Setters ---
 
@@ -97,9 +97,9 @@ public class entityProcesos {
     public String getIpi() { return ipi; }
     public void setIpi(String ipi) { this.ipi = ipi; }
 
-    public String getComentario_s() { return comentario_s; }
-    public void setComentario_s(String comentario_s) { this.comentario_s = comentario_s; }
+    public String getInicio() { return inicio; }
+    public void setInicio(String inicio) { this.inicio = inicio; }
 
-    public String getComentario_a() { return comentario_a; }
-    public void setComentario_a(String comentario_a) { this.comentario_a = comentario_a; }
+    public String getConclusion() { return conclusion; }
+    public void setConclusion(String conclusion) { this.conclusion = conclusion; }
 }

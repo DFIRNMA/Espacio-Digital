@@ -12,3788 +12,774 @@ document.addEventListener("DOMContentLoaded", function () {
   const sortSelect = document.getElementById("sortOptions");
   const alinMdeaCheckbox = document.getElementById("alinMdeaCheckbox");
   const alinOdsCheckbox = document.getElementById("alinOdsCheckbox");
+  const radioSocio = document.getElementById("infoDemografica");
+  const radioEco = document.getElementById("infoEconomica");
+  const relTabCheckbox = document.getElementById("relTabCheckbox");
+  const relMicroCheckbox = document.getElementById("relMicroCheckbox");
+  const chkRelAbiertos = document.getElementById("chkRelAbiertos");
 
-  // URL base de la nueva API
-  
-
-  // Variables globales para almacenar los datos
-  let allData = [];
-  let currentFilteredData = [];
-  let clasificacionesGlobal = [];
-  let procesosGlobal = [];
-  // Agrega más variables globales según los catálogos que necesites cruzar (ods, mdeas, etc.)
+  // URL base de la nueva API (Relativa)
+  const API_BASE_URL = "/api";
 
   // Variables globales
+  let allData = [];
+  let currentFilteredData = [];
+  window.clasificacionesGlobal = [];
+  window.procesosGlobal = [];
+  window.fuentesGlobal = [];
+  window.odsGlobal = [];
+  window.mdeasGlobal = [];
+  window.clasifIndex = new Map();
+
   const params = new URLSearchParams(window.location.search);
   let itemsPerPage = parseInt(15);
   let currentPage = 1;
-  let lastSubmittedTerm = null; 
+  let lastSubmittedTerm = null;
+  let currentSearchTerm = "";
 
-  itemsPerPageSelect.addEventListener("change", () => {
-    itemsPerPage = Number(10);
-    currentPage= 1;
-    applyFilters();
-  })
+  window.renderLocked = false;
+  window.initialPaintDone = false;
 
-  let currentSearchTerm = ""; // término activo para <mark>
+  // Filtro por unidad: 'todas' | 'socio' | 'eco'
+  let unidadFiltro = 'todas';
 
-// Apartado de filtros colapsable
- const toggleBtn = document.querySelector('[data-bs-target="#procCollapse"]');
-    const collapseEl = document.getElementById('procCollapse');
-    const labelEl = toggleBtn?.querySelector('.collapse-label');
+  // Apartado de filtros colapsables
+  const toggleBtn = document.querySelector('[data-bs-target="#procCollapse"]');
+  const collapseEl = document.getElementById('procCollapse');
+  const labelEl = toggleBtn?.querySelector('.collapse-label');
 
-    if (collapseEl && toggleBtn && labelEl) {
-      collapseEl.addEventListener('shown.bs.collapse', () => { labelEl.textContent = 'Ocultar'; });
-      collapseEl.addEventListener('hidden.bs.collapse', () => { labelEl.textContent = 'Mostrar'; });
-    }
-
-    // Apartado de Unidad Administrativa colapsable
-      const toggleUnidadBtn = document.querySelector('[data-bs-target="#unidadCollapse"]');
-      const unidadCollapseEl = document.getElementById('unidadCollapse');
-      const unidadLabel = toggleUnidadBtn?.querySelector('.collapse-label-unidad');
-      if (unidadCollapseEl && unidadLabel){
-        unidadCollapseEl.addEventListener('shown.bs.collapse',  () => unidadLabel.textContent = 'Ocultar');
-        unidadCollapseEl.addEventListener('hidden.bs.collapse', () => unidadLabel.textContent = 'Mostrar');
-      }
-
- 
-window.renderLocked     = false;  // evita renders mientras aplicamos URL
-window.initialPaintDone = false;  // ya hicimos el primer render “válido”
-
-// Filtro por unidad: 'todas' | 'socio' | 'eco'
-let unidadFiltro = 'todas';
-
-// Sets por unidad (globales)
-let socioSet = new Set();
-let ecoSet   = new Set();
-
-let clasifIndex = new Map();
-
-function rebuildClasifIndex() {
-  clasifIndex = new Map();
-  const rows = (window.clasificacionesGlobal || []);
-  rows.forEach(row => {
-    // detectar id de variable en múltiples campos posibles
-    const idVar = String(row.id_a || row.id_s || row.idVar || row.id_var || row.id || row.idVarStr || "").trim();
-
-    // posibles lugares donde vienen las clasificaciones
-    const rawVals = row.clasificaciones || row.clase || row.clasificacion || row.valores || row.val || row.items || row.categorias || null;
-
-    if (!rawVals) return;
-
-    // Normalizar a array de strings
-    let vals = [];
-    if (Array.isArray(rawVals)) {
-      vals = rawVals.map(x => (x || "").toString().trim()).filter(Boolean);
-    } else if (typeof rawVals === 'object') {
-      // si viene como objeto con keys/values, intentar extraer nombres
-      vals = Object.values(rawVals).map(x => (x || "").toString().trim()).filter(Boolean);
-    } else {
-      vals = String(rawVals).split(/\r?\n|;|\|/).map(x => x.trim()).filter(Boolean);
-    }
-
-    if (!vals.length) return;
-    if (!clasifIndex.has(idVar)) clasifIndex.set(idVar, []);
-    const arr = clasifIndex.get(idVar);
-    vals.forEach(v => { if (v && !arr.includes(v)) arr.push(v); });
-  });
-}
-
-  // Determina a qué unidad pertenece una variable
-  function getUnidadDeVariable(variable) {
-    // a) Económicas que vienen de la API nueva
-    if (variable && variable._source === 'economicas-ultima') return 'eco';
-
-    // b) Variables locales: inferimos por su proceso (si ese proceso proviene de 'economicas')
-    try {
-      const proc = Array.isArray(procesosGlobal)
-        ? procesosGlobal.find(p => String(p.idPp) === String(variable.idPp))
-        : null;
-      if (proc && proc._source === 'economicas') return 'eco';
-    } catch {}
-
-    // c) Predeterminado: sociodemográficas
-    return 'socio';
+  if (collapseEl && toggleBtn && labelEl) {
+    collapseEl.addEventListener('shown.bs.collapse', () => { labelEl.textContent = 'Ocultar'; });
+    collapseEl.addEventListener('hidden.bs.collapse', () => { labelEl.textContent = 'Mostrar'; });
   }
 
-  const radioSocio = document.getElementById("infoDemografica");
-  const radioEco   = document.getElementById("infoEconomica");
+  const toggleUnidadBtn = document.querySelector('[data-bs-target="#unidadCollapse"]');
+  const unidadCollapseEl = document.getElementById('unidadCollapse');
+  const unidadLabel = toggleUnidadBtn?.querySelector('.collapse-label-unidad');
+  if (unidadCollapseEl && unidadLabel) {
+    unidadCollapseEl.addEventListener('shown.bs.collapse', () => unidadLabel.textContent = 'Ocultar');
+    unidadCollapseEl.addEventListener('hidden.bs.collapse', () => unidadLabel.textContent = 'Mostrar');
+  }
 
+  // ==========================================
+  // FUNCIÓN CENTRAL: CRUCE DE VARIABLES Y PROCESOS
+  // ==========================================
+  function getUnidadDeVariable(variable) {
+    // 1. Asegurarnos de tener el acrónimo
+    let acronimoVar = (variable.acronimo || variable.idPp || "").trim().toUpperCase();
+    if (!acronimoVar && variable.id_a) acronimoVar = String(variable.id_a).split("-")[0].toUpperCase();
+    if (!acronimoVar && variable.id_s) acronimoVar = String(variable.id_s).split("-")[0].toUpperCase();
+    if (!acronimoVar && variable.idVar) acronimoVar = String(variable.idVar).split("-")[0].toUpperCase();
 
+    // 2. Buscar proceso por acrónimo
+    const proceso = (window.procesosGlobal || []).find(p =>
+      (p.acronimo || p.idPp || "").trim().toUpperCase() === acronimoVar
+    );
 
-  // Listeners
- radioSocio.addEventListener("change", () => {
-  unidadFiltro = "socio";
-  const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática") ? temaSelect.value : "";
-  filtrarProcessSelectPorTema(temaActual);  // unidad + tema
-  applyFilters();
-  });
+    // 3. Revisar el campo "unidad"
+    if (proceso && proceso.unidad) {
+      const unidadStr = String(proceso.unidad).toLowerCase();
+      if (unidadStr.includes("económica") || unidadStr.includes("economica")) {
+        return "eco";
+      }
+    }
+    return "socio"; // Por defecto, si no se encuentra o es otra unidad
+  }
 
-  radioEco.addEventListener("change", () => {
-    unidadFiltro = "eco";
-    const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática") ? temaSelect.value : "";
-    filtrarProcessSelectPorTema(temaActual);  // unidad + tema
-    applyFilters();
-  });
-  // ==== PARCHE: helpers faltantes usados más abajo ====
-
-  
   function filterByUnidad(data) {
     if (!Array.isArray(data)) return [];
     if (unidadFiltro === 'todas') return data;
-    return data.filter(v => getUnidadDeVariable(v) === (unidadFiltro === 'socio' ? 'socio' : 'eco'));
+    return data.filter(v => getUnidadDeVariable(v) === unidadFiltro);
   }
 
-  // ==== HELPERS: mapear API /indicadores/ultima al shape local de /api/variables ====
+  // ==========================================
+  // CARGA DE DATOS INICIALES
+  // ==========================================
+  async function cargarDatosIniciales() {
+    try {
+      const loader = document.getElementById("loader");
+      const mainContent = document.getElementById("mainContent");
 
+      if (loader) loader.style.display = "flex";
+      if (mainContent) mainContent.style.display = "none";
 
+      const [
+        variablesRes,
+        clasificacionesRes,
+        procesosRes,
+        fuentesRes,
+        odsRes,
+        mdeasRes
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/variables`),
+        fetch(`${API_BASE_URL}/clasificaciones`),
+        fetch(`${API_BASE_URL}/procesos`),
+        fetch(`${API_BASE_URL}/fuentes`),
+        fetch(`${API_BASE_URL}/ods`),
+        fetch(`${API_BASE_URL}/mdeas`)
+      ]);
 
-  // 🌐 Catálogo de indicadores ODS (pull_indicadores_ods)
-let odsIndicadoresCatalog = null;
+      if (!variablesRes.ok) throw new Error("Fallo al cargar la API de variables");
 
-async function getOdsIndicadoresCatalog() {
-  if (odsIndicadoresCatalog) return odsIndicadoresCatalog;
+      const variablesRaw = await variablesRes.json();
+      window.clasificacionesGlobal = clasificacionesRes.ok ? await clasificacionesRes.json() : [];
+      window.procesosGlobal = procesosRes.ok ? await procesosRes.json() : [];
+      window.fuentesGlobal = fuentesRes.ok ? await fuentesRes.json() : [];
+      window.odsGlobal = odsRes.ok ? await odsRes.json() : [];
+      window.mdeasGlobal = mdeasRes.ok ? await mdeasRes.json() : [];
 
-  try {
-    // Intentar el endpoint local `/api/ods`. Si tu backend tuviera uno
-    // específico de indicadores, modifícalo aquí.
-    const res  = await fetch('/api/ods');
-    const data = await res.json();
-    odsIndicadoresCatalog = Array.isArray(data) ? data : [];
-  } catch (err) {
-    console.error('Error cargando /api/ods:', err);
-    odsIndicadoresCatalog = [];
-  }
+      console.log("Variables cargadas:", variablesRaw.length);
+      console.log("Procesos cargados:", window.procesosGlobal.length);
+      console.log("Clasificaciones cargadas:", window.clasificacionesGlobal.length);
 
-  return odsIndicadoresCatalog;
-}
+      // Normalizar procesos: asegurar acrónimos en mayúsculas para el cruce
+      window.procesosGlobal = (window.procesosGlobal || []).map(p => {
+        const acr = p.acronimo || p.acr || p.idPp || p.id_pp || p.codigo || p.id || "";
+        const idPp = acr || p.id || "";
+        const pp = p.pp || p.proceso || p.nombre || acr || "No disponible";
+        return {
+          ...p,
+          acronimo: String(acr).trim().toUpperCase(),
+          idPp: String(idPp).trim().toUpperCase(),
+          pp: pp
+        };
+      });
 
-const API_BASE_URL = "/api"; // Ya no usamos la IP, usamos ruta relativa
+      rebuildClasifIndex();
 
-async function cargarDatosIniciales() {
-  try {
-    const loader = document.getElementById("loader");
-    const mainContent = document.getElementById("mainContent");
-    
-    if (loader) loader.style.display = "flex";
-    if (mainContent) mainContent.style.display = "none";
+      // Mapeo adaptado de variables
+      allData = variablesRaw.map(v => {
+        let acr = (v.acronimo || v.procesoAcronimo || v.acronimoPp || '').trim().toUpperCase();
+        if (!acr && v.id_a) acr = String(v.id_a).split("-")[0].toUpperCase();
+        if (!acr && v.id_s) acr = String(v.id_s).split("-")[0].toUpperCase();
 
-    // 1. Peticiones a las nuevas APIs (Sin "eventos")
-    const [
-      variablesRes,
-      clasificacionesRes,
-      procesosRes,
-      fuentesRes,
-      odsRes,
-      mdeasRes
-    ] = await Promise.all([
-      fetch(`${API_BASE_URL}/variables`),
-      fetch(`${API_BASE_URL}/clasificaciones`),
-      fetch(`${API_BASE_URL}/procesos`),
-      fetch(`${API_BASE_URL}/fuentes`),
-      fetch(`${API_BASE_URL}/ods`),
-      fetch(`${API_BASE_URL}/mdeas`)
-    ]);
+        const idVarRaw = v.id_s || v.id_a || v.acronimo || "SD";
+        
+        return {
+          idVar: String(idVarRaw).trim(),
+          acronimo: acr,
+          idPp: acr, // Usamos el acrónimo como ID del proceso para el cruce
+          id_a: v.id_a,
+          id_s: v.id_s,
+          id_fuente: v.id_fuente,
 
-    // Validar respuestas
-    if (!variablesRes.ok) throw new Error("Fallo al cargar la API de variables");
+          variable: v.variable_a || "Nombre no disponible",
+          variableFuente: v.variable_s || "Nombre no disponible",
+          pregunta: v.pregunta || v.pregunta_s || v.pregunta_a || "Sin pregunta definida",
+          definicion: v.definicion || v.definicion_s || v.definicion_a || "Sin definición",
+          universo: v.universo || "No especificado",
 
-    const variablesRaw = await variablesRes.json();
-    window.clasificacionesGlobal = await clasificacionesRes.json();
-    window.procesosGlobal = await procesosRes.json();
-    // poblar select de procesos relacionado con unidades socio/eco
-    if (processSelect) {
-      processSelect.innerHTML = "";
-      const unidadKeywords = ['sociodemograficas','económicas'];
-      (window.procesosGlobal || []).forEach(p => {
-        const u = String(p.unidad || '').toLowerCase();
-        if (unidadKeywords.some(k => u.includes(k))) {
-          const opt = document.createElement('option');
-          opt.value = String(p.acronimo || p.idPp || '');
-          opt.text = p.pp || p.proceso || p.acronimo || opt.value;
+          tema: v.tema1 || v.tema_1 || v.temaPrincipal || v.tema || "-",
+          subtema: v.subtema1 || v.subtema_1 || v.subtemaPrincipal || v.subtema || "-",
+          tema2: v.tema2 || v.tema_2 || v.temaSecundario || v.tema_alterno || "",
+          subtema2: v.subtema2 || v.subtema_2 || v.subtemaSecundario || "",
+          tematica: v.tematica || v.universo || "-",
+
+          anio_referencia: v.anio_referencia || v.anioReferencia || "No disponible",
+          url: v.url || v.liga || null,
+
+          ods: v.ods === true,
+          mdea: v.mdea === true,
+          tabulados: v.tabulados === true,
+          datosabiertos: v.datosabiertos === true,
+          microdatos: v.microdatos || v.microdato || "No",
+
+          comentario: v.comentario_s || v.comentario_a || v.comentario || "",
+          _raw: v
+        };
+      });
+
+      // Anexar clasificación principal
+      allData.forEach(v => {
+        const list = window.clasifIndex.get(String(v.idVar)) || [];
+        v.clasificacion = list.length ? String(list[0]) : "";
+      });
+
+      // Poblar el select de procesos para la UI
+      if (processSelect) {
+        processSelect.innerHTML = "";
+        const ppsConVars = new Set(allData.map(v => v.acronimo).filter(x => x));
+
+        const procs = window.procesosGlobal
+          .filter(p => ppsConVars.has(p.acronimo))
+          .sort((a, b) => a.pp.localeCompare(b.pp));
+
+        procs.forEach(p => {
+          const opt = document.createElement("option");
+          opt.value = p.acronimo;
+          opt.text = p.pp;
           processSelect.appendChild(opt);
-        }
-      });
-    }
-    window.fuentesGlobal = await fuentesRes.json();
-    window.odsGlobal = await odsRes.json();
-    window.mdeasGlobal = await mdeasRes.json();
-
-    // Limpiamos eventosGlobal por completo para evitar errores
-    window.eventosGlobal = [];
-
-    // --- Normalizar procesos: asegurar campos idPp, acronimo y pp para todo el código ---
-    window.procesosGlobal = (window.procesosGlobal || []).map(p => {
-      const acr = p.acronimo || p.acr || p.idPp || p.id_pp || p.codigo || p.id || null;
-      const idPp = p.idPp || p.id_pp || acr || p.id || null;
-      const pp = p.pp || p.proceso || p.nombre || p.nombreProceso || p.procesoNombre || acr || "No disponible";
-      return Object.assign({}, p, { acronimo: String(acr || '').trim(), idPp: String(idPp || '').trim(), pp: pp });
-    });
-
-    // 2. MAPEO: Adaptamos el nuevo JSON a tu estructura (incluye tema2/subtema2 y normalizaciones)
-    allData = (variablesRaw || []).map(v => {
-      const idVarRaw = v.id_s || v.id_a || v.idVar || v.id || v.acronimo || '';
-      // intentar detectar idPp / proceso asociado en el objeto variable
-      const idPpRaw = v.idPp || v.id_pp || v.id_proceso || v.procesoAcronimo || v.proceso || v.acronimoPp || v.acronimo || v.idP || '';
-      return {
-        // Identificador consistente como string
-        idVar: String(idVarRaw).trim(),
-        idPp: String(idPpRaw).trim(),
-        id_fuente: v.id_fuente,
-        acronimo: v.acronimo || "",
-
-        // Priorizamos el nombre sociodemográfico, si no existe usamos el económico
-        variable: v.variable_s || v.variable_a || v.variable || "Nombre no disponible",
-
-        pregunta: v.pregunta || v.pregunta_s || v.pregunta_a || "Sin pregunta definida",
-        definicion: v.definicion || v.definicion_s || v.definicion_a || "Sin definición",
-        universo: v.universo || "No especificado",
-
-        // Mapeo de jerarquía de temas: tema1/subtema1 y tema2/subtema2 (múltiples nombres posibles)
-        tema: v.tema1 || v.tema_1 || v.temaPrincipal || v.tema || "-",
-        subtema: v.subtema1 || v.subtema_1 || v.subtemaPrincipal || v.subtema || "-",
-        tema2: v.tema2 || v.tema_2 || v.temaSecundario || v.temaSegundo || v.tema_alterno || "",
-        subtema2: v.subtema2 || v.subtema_2 || v.subtemaSecundario || v.subtemaSegundo || "",
-        tematica: v.tematica || v.categoria || "-",
-
-        // El nuevo periodo es anio_referencia
-        anio_referencia: v.anio_referencia || v.anioReferencia || "No disponible",
-        url: v.url || v.liga || null,
-
-        // Banderas booleanas (ahora vienen como true/false desde BD)
-        ods: v.ods === true,
-        mdea: v.mdea === true,
-        tabulados: v.tabulados === true,
-        datosabiertos: v.datosabiertos === true,
-        microdatos: v.microdatos || v.microdato || "No",
-
-        // Comentarios
-        comentario: v.comentario_s || v.comentario_a || v.comentario || "",
-
-        // Campos auxiliares originales para debug/uso posterior
-        _raw: v
-      };
-    });
-
-    // 2.b Reconstruir índice de clasificaciones y anexar un campo corto `clasificacion` a cada variable
-    rebuildClasifIndex();
-    allData.forEach(v => {
-      const list = clasifIndex.get(String(v.idVar)) || [];
-      v.clasificacion = list.length ? String(list[0]) : ""; // primera clasificacion como campo rápido
-    });
-
-    // 2.c Poblar el select de procesos (normalizado) para la UI
-    if (processSelect) {
-      processSelect.innerHTML = "";
-
-      // conjunto de idPp / acrónimos que tienen al menos una variable
-      const ppsConVars = new Set(
-        allData
-          .map(v => String(v.idPp || v.acronimo || "").trim())
-          .filter(x => x)
-      );
-
-      const procs = (procesosGlobal || [])
-        .filter(p => {
-          const id = String(p.idPp || p.acronimo || "").trim();
-          if (!ppsConVars.has(id)) return false;           // sólo procesos con vars
-          const u = String(p.unidad || "").toLowerCase();  // unidad socio/eco
-          return u.includes("sociodemogra") || u.includes("económica");
-        })
-        .slice()
-        .sort((a, b) =>
-          String(a.pp || a.acronimo || "")
-            .localeCompare(String(b.pp || b.acronimo || ""))
-        );
-
-      procs.forEach(p => {
-        const opt = document.createElement("option");
-        opt.value = String(p.idPp || p.acronimo || p.id || "").trim();
-        opt.text =
-          p.pp || p.proceso || p.acronimo || opt.value || "Sin nombre";
-        processSelect.appendChild(opt);
-      });
-    }
-
-    // 3. Renderizamos y activamos paginación
-    currentFilteredData = [...allData];
-    
-    renderPage(currentFilteredData, currentPage);
-    setupPagination(currentFilteredData);
-    
-    if (loader) loader.style.display = "none";
-    if (mainContent) mainContent.style.display = "";
-    
-    // Actualizar contador en la UI si existe
-    const totalCount = document.getElementById("totalCount"); 
-    if (totalCount) totalCount.textContent = currentFilteredData.length;
-
-    // --- AGREGA ESTO PARA OCULTAR EL SPINNER DEL CONTADOR ---
-    // (Asegúrate de poner el ID correcto que tenga el spinner en tu HTML)
-    hideCounterSpinner();
-
-  } catch (error) {
-    console.error("Error al cargar las APIs unificadas:", error);
-    const loader = document.getElementById("loader");
-    if (loader) {
-       loader.innerHTML = `
-          <div class="alert alert-danger m-4">
-              <strong>Error de conexión:</strong> ${error.message}
-          </div>`;
-    }
-  }
-}
-
-  // Devuelve la "base" de variables para poblar el select de temáticas
-function getBaseParaTemas() {
-  let base = Array.isArray(allData) ? allData : [];
-
-  // 1) Filtrar por UNIDAD
-  if (unidadFiltro === 'socio') {
-    base = base.filter(v => getUnidadDeVariable(v) === 'socio');
-  } else if (unidadFiltro === 'eco') {
-    base = base.filter(v => getUnidadDeVariable(v) === 'eco');
-  }
-
-  // 2) (Opcional) Filtrar por PROCESOS seleccionados
-  const selectedProcesses = Array.from(processSelect?.selectedOptions || []).map(o => o.value);
-  if (selectedProcesses.length) {
-    base = base.filter(v => selectedProcesses.includes(v.idPp));
-  }
-
-  // ❌ No filtrar por currentSearchTerm aquí
-  return base;
-}
-
-
-function repoblarTematicas() {
-  if (!temaSelect) return;
-
-  const prev = temaSelect.value;
-  const baseUnidadTemaTerm = (allData || []).filter(v => {
-    // Unidad
-    if (unidadFiltro !== 'todas' && getUnidadDeVariable(v) !== unidadFiltro) return false;
-    // Búsqueda
-    const nterm = (currentSearchTerm || "").trim();
-    if (nterm && !matchesSearchTerm(v, nterm)) return false;
-    return true;
-  });
-
-  let temas = collectTematicas(baseUnidadTemaTerm);
-  temas = temas.filter(t => t && t.trim() !== "" && t.trim() !== "-");
-  temas = [...new Set(temas)].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
-
-  temaSelect.innerHTML = "";
-  const placeholder = document.createElement('option');
-  placeholder.value = "";
-  placeholder.textContent = "Seleccione una temática";
-  temaSelect.appendChild(placeholder);
-
-  temas.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t;
-    opt.textContent = t;
-    temaSelect.appendChild(opt);
-  });
-
-  if (prev && temas.includes(prev)) {
-    temaSelect.value = prev;
-  } else {
-    temaSelect.value = "";
-  }
-}
-
-
-// Devuelve el Set de idPp permitidos según la unidad (socio/eco/todas)
-function allowedPpsPorUnidad() {
-  const base = new Set();
-  (procesosGlobal || []).forEach(p => {
-    const esEco = p._source === 'economicas';
-    if (unidadFiltro === 'eco' && !esEco) return;
-    if (unidadFiltro === 'socio' && esEco) return;
-    base.add(p.acronimo);
-  });
-  return base;
-}
-
-// Devuelve un Set de idPp que tienen variables con la temática seleccionada
-function procesosParaTema(selectedTema) {
-  const pps = new Set();
-  if (!selectedTema) return pps;
-
-  // 1) Filtra por unidad primero (si aplica)
-  const allowedByUnidad = allowedPpsPorUnidad();
-
-  // 2) Busca variables que coincidan con la temática (tema o tema2)
-  (allData || []).forEach(v => {
-    const matchTema = (v.tema && v.tema === selectedTema) || (v.tema2 && v.tema2 === selectedTema);
-    if (!matchTema) return;
-    if (allowedByUnidad.size && !allowedByUnidad.has(v.idPp)) return; // respeta unidad
-    if (v.idPp) pps.add(v.idPp);
-  });
-
-  return pps;
-}
-
-function procesosParaUnidadTemaYBusqueda({ unidad = 'todas', tema = "", term = "" }) {
-  const pps = new Set();
-  const nterm = (term || "").trim().toLowerCase();
-
-  (allData || []).forEach(v => {
-    // Unidad
-    if (unidad !== 'todas' && getUnidadDeVariable(v) !== unidad) return;
-
-    // Temática (si la hay)
-    if (tema) {
-      const matchTema = (v.tema && v.tema === tema) || (v.tema2 && v.tema2 === tema);
-      if (!matchTema) return;
-    }
-
-    // Término de búsqueda (si lo hay)
-    if (nterm && !matchesSearchTerm(v, nterm)) return;
-
-    if (v.idPp) pps.add(v.idPp);
-  });
-
-  return pps;
-}
-
-
-function filtrarProcessSelectPorTema(selectedTema) {
-  // Toma el término activo (persistente)
-  const term = (currentSearchTerm || "").trim();
-  // Usa la unidad vigente
-  const unidad = unidadFiltro; // 'todas' | 'socio' | 'eco'
-
-  // Conjunto de procesos permitido por unidad+tema+search
-  const targetSet = procesosParaUnidadTemaYBusqueda({
-    unidad,
-    tema: (selectedTema && selectedTema !== "Seleccione una temática") ? selectedTema : "",
-    term
-  });
-
-  // Mostrar/ocultar opciones del select y quitar selecciones que ya no apliquen
-  Array.from(processSelect.options).forEach(opt => {
-    const permitido = targetSet.size === 0 ? false : targetSet.has(opt.value);
-    opt.hidden = !permitido;
-    if (!permitido && opt.selected) opt.selected = false;
-  });
-
-  // Serie de años: si hay selección válida, usa esa; si no, usa todos los permitidos
-  const stillSelected = Array.from(processSelect.selectedOptions).map(o => o.value);
-  if (stillSelected.length > 0) {
-    populatePeriodFilters(stillSelected);
-  } else if (targetSet && targetSet.size) {
-    populatePeriodFilters(Array.from(targetSet));
-  } else {
-    // si no hay nada permitido, limpia periodos
-    populatePeriodFilters([]);
-  }
-
-  // Actualiza chips y aplica filtros
-  renderSelectedTags(Array.from(processSelect.selectedOptions));
-  applyFilters();
-}
-
-
-function hasMicrodatos(v) {
-  // ajusta a tu estructura real
-  return v.relMicro === "Sí" || (Array.isArray(v._microdatosList) && v._microdatosList.length > 0);
-}
-
-function hasDatosAbiertos(v) {
-  // ajusta a tu estructura real
-  return v.relAbiertos === "Sí" || (Array.isArray(v._datosAbiertosList) && v._datosAbiertosList.length > 0);
-}
-
-
-  // ==== FIN HELPERS /indicadores/ultima ====
-
-  // trae y aplana /indicadores/ultima → array de variables en shape local
-  async function fetchVariablesDesdeUltima() {
-    const urlUltima = "http://10.109.1.13:1024/api/indicadores/ultima";
-    const res = await fetch(urlUltima);
-    if (!res.ok) throw new Error(`ultima respondió ${res.status}`);
-    const payload = await res.json();
-
-    const registros = Array.isArray(payload) ? payload : [payload];
-    const out = [];
-    for (const reg of registros) {
-      const lista = Array.isArray(reg.variableList) ? reg.variableList : [];
-      const evs = Array.isArray(reg.eventosList) ? reg.eventosList : [];
-      for (const v of lista) out.push(mapUltimaVariableToLocal(v, evs)); // 👈 pasa eventosList
-    }
-    return out;
-  }
-
-
-  // fusiona dos listas de variables y de‑duplica por idVar (prioriza locales)
-  function mergeVariablesLocalYUltima(locales, ultima) {
-    const map = new Map();
-    for (const v of ultima)  map.set(v.idVar, v);
-    for (const v of locales) map.set(v.idVar, v); // pisa con locales si hay misma idVar
-    return Array.from(map.values());
-  }
-  // ==== FIN HELPERS /indicadores/ultima ====
-
-  // Mapeo de procesos de economicas
-  function mapEconomicasProcesoToLocal(item) {
-    const perPub = (item.periodicidadpublicacion && item.periodicidadpublicacion.trim())
-      ? item.periodicidadpublicacion.trim()
-      : (item.periodicidad || null);
-
-    const grado = (String(item.iin || '').toLowerCase() === 'sí' || String(item.iin || '').toLowerCase() === 'si')
-      ? "Información de Interés Nacional"
-      : null;
-
-    const desc = [item.objetivo, item.pobjeto].filter(Boolean).join(" ");
-
-    return {
-      idPp: item.acronimo || "SD",
-      pi: item.proceso || "No disponible",
-      pp: item.proceso || "No disponible",
-      dgaRespPp: null,
-      perioProd: null,
-      vigInicial: item.inicio || null,
-      vigFinal: item.fin || null,
-      metGenInf: item.metodo || null,
-      gradoMadur: grado,
-      perPubResul: perPub || "No disponible",
-      estatus: item.estatus || "Activo",
-      descPp: desc || "No disponible",
-      comentPp: item.comentarioS || item.comentarioA || "-",
-      responCaptura: null,
-      _source: 'economicas',
-      _unidad: item.unidad || null,
-    };
-  }
-
-  // Helperrs de ODS
-// === util de extracción (1..17) ===
-function getOdsObjectiveNumber(val) {
-  if (val == null) return null;
-  if (typeof val === 'object' && val.objetivo != null) return getOdsObjectiveNumber(val.objetivo);
-  const m = String(val).match(/(\d{1,2})/);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  return (Number.isFinite(n) && n >= 1 && n <= 17) ? n : null;
-}
-
-// Objetivo: nunca insertar puntos. "12" => "12"
-function formatOdsObjetivo(val) {
-  const n = getOdsObjectiveNumber(val);
-  return (n != null) ? String(n) : (val ?? "-");
-}
-
-// Meta/Indicador: si ya trae puntos, respetar; si no, forzar OO.x(.y...)
-function formatOdsComposite(val) {
-  if (val == null) return "-";
-  const s = String(val).trim();
-  if (s.includes(".")) return s;                 // ya viene formateado (p. ej. "12.2", "12.1.1")
-  const digits = s.replace(/\D/g, "");           // "122" -> "122"
-  if (digits.length <= 2) return String(parseInt(digits || "0", 10) || "-"); // "12" -> "12"
-  const obj = String(parseInt(digits.slice(0, 2), 10)); // "12"
-  const rest = digits.slice(2).split("").join(".");     // "2" -> "2", "11" -> "1.1"
-  return `${obj}.${rest}`;                       // "122" -> "12.2", "1211" -> "12.1.1"
-}
-
-// === util de asset (ODS0010_es.jpg, ..., ODS0170_es.jpg) ===
-function odsAssetPath(objNum) {
-  const code = String(objNum * 10).padStart(4, "0");
-  return `/assets/ODS${code}_es.jpg`; // servido desde src/main/resources/static/assets
-}
-
-// === genera las miniaturas con data-ods ===
-function buildOdsThumbsImgs(idVar, objNums) {
-  return objNums.map(n => `
-    <img
-      src="${odsAssetPath(n)}"
-      alt="ODS ${n}"
-      class="ods-thumb badge-ods"
-      data-idvar="${idVar}"
-      data-ods="${n}"
-      data-type="ods"
-      data-bs-toggle="modal"
-      data-bs-target="#infoModal"
-      loading="lazy"
-      title="ODS ${n}"
-    >
-  `).join("");
-}
-
-function cleanUnderscores(str) {
-  return (str || "").toString().replace(/_/g, " ").replace(/\s+/g, " ").trim();
-}
-
-
-
-let __odsCache__ = null;
-async function fetchOdsOnce() {
-  if (__odsCache__) return __odsCache__;
-  const res = await fetch('/api/ods');
-  const data = await res.json();
-  __odsCache__ = Array.isArray(data) ? data : (data ? [data] : []);
-  return __odsCache__;
-}
-
-
-// Helpers de MDEA //
-
-// Nombre estándar por componente MDEA (1..6)
-const MDEA_COMPONENTS = {
-  1: "Condiciones y calidad ambiental",
-  2: "Recursos ambientales y su uso",
-  3: "Residuos y actividades humanas relacionadas",
-  4: "Eventos extremos y desastres",
-  5: "Asentamientos humanos y salud ambiental",
-  6: "Protección ambiental y participación ciudadana"
-};
-
-// Quita número al final: "… salud ambiental 5" -> "… salud ambiental"
-function stripTrailingNumber(text) {
-  if (text == null) return "-";
-  return String(text).replace(/\s*\b\d+\b\s*$/, "").trim();
-}
-
-// "253b1 Fertilizantes naturales" -> { code:"253b1", name:"Fertilizantes naturales" }
-function splitCodeAndName(text) {
-  const s = String(text || "").trim();
-  if (!s) return { code: "", name: "" };
-  const m = s.match(/^([0-9A-Za-z]+)\s*(.*)$/);
-  return m ? { code: m[1], name: m[2] } : { code: "", name: s };
-}
-
-// Convierte códigos MDEA a formato punteado:
-// Convierte a formato punteado (solo para ECONÓMICAS):
-// "25"->"2.5", "253"->"2.5.3", "253b"->"2.5.3.b", "253b1"->"2.5.3.b.1"
-function dotifyMdeaCode(code) {
-  const raw = String(code || "").trim();
-  if (!raw) return "-";
-  const parts = [];
-  for (const ch of raw) {
-    if (/\d/.test(ch)) parts.push(ch);
-    else if (/[A-Za-z]/.test(ch)) parts.push(ch.toLowerCase());
-  }
-  return parts.length ? parts.join(".") : raw;
-}
-
-// Detecta número de componente (1..6) en varios formatos/campos
-function getMdeaComponentNumber(val) {
-  if (val == null) return null;
-  if (typeof val === 'object' && val.componente != null) return getMdeaComponentNumber(val.componente);
-  const m = String(val).match(/(\d{1,2})\b/);
-  const n = m ? parseInt(m[1], 10) : null;
-  return Number.isFinite(n) ? n : null;
-}
-
-// Devuelve "N. Nombre estandarizado" o "Componente N" si no está en el mapa
-// Etiqueta estándar del componente "N. Nombre"
-function getMdeaComponentLabel(num) {
-  const MDEA_COMPONENTS = {
-    1: "Condiciones y calidad ambiental",
-    2: "Recursos ambientales y su uso",
-    3: "Residuos y actividades humanas relacionadas",
-    4: "Eventos extremos y desastres",
-    5: "Asentamientos humanos y salud ambiental",
-    6: "Protección ambiental y participación ciudadana"
-  };
-  return (MDEA_COMPONENTS[num] ? `${num}. ${MDEA_COMPONENTS[num]}` : `Componente ${num}`);
-}
-
-// Intenta obtener un nombre legible del componente (eco: viene en componenteNombre;
-// socio: puede venir algo tipo "Residuos 3", entonces quitamos el número final)
-function getMdeaComponentName(source) {
-  if (!source) return "-";
-  if (typeof source === 'object' && source.componenteNombre) return String(source.componenteNombre).trim();
-  const s = String(source).trim();
-  // "Residuos 3" -> "Residuos"
-  const name = s.replace(/\b\d+\b\s*$/,'').trim();
-  return name || s;
-}
-
-// Construye el HTML de chips MDEA
-function buildMdeaChips(idVar, compArray) {
-  // compArray = [{ num:2, name:"lo que venga..."}, ...]  (name ya no se usa para la etiqueta)
-  const seen = new Set();
-  const ordered = [];
-  compArray.forEach(c => {
-    if (!c || c.num == null) return;
-    if (!seen.has(c.num)) { seen.add(c.num); ordered.push(c); }
-  });
-  if (!ordered.length) {
-    return `<span class="badge bg-secondary disabled badge-mdea" style="pointer-events:none;cursor:default;">Sin MDEA</span>`;
-  }
-
-  // orden ascendente por número de componente
-  ordered.sort((a,b) => a.num - b.num);
-
-  return ordered.map(c => `
-    <button type="button"
-            class="btn mdea-chip mdea-chip--${c.num}"
-            data-idvar="${idVar}"
-            data-mdea-comp="${c.num}"
-            data-bs-toggle="modal"
-            data-bs-target="#infoModal"
-            title="Componente ${c.num}">
-      ${getMdeaComponentLabel(c.num)}
-    </button>
-  `).join("");
-}
-
-function cleanComponentName(name) {
-  if (!name) return "";
-  return name.replace(/_/g, " ").trim();
-}
-// ==== FIN HELPERS MDEA/ODS ====
-
-
-    // Referencias a los checkboxes
-const relTabCheckbox = document.getElementById("relTabCheckbox");
-const relMicroCheckbox = document.getElementById("relMicroCheckbox");
-const chkRelAbiertos  = document.getElementById("chkRelAbiertos"); // ← NUEVO
-
-// Script para el navbar
-document.addEventListener("DOMContentLoaded", function () {
-                const currentPath = window.location.pathname.split("/").pop();
-                const navLinks = document.querySelectorAll(".navbar-nav .nav-link");
-
-                navLinks.forEach(link => {
-                const href = link.getAttribute("href");
-                if (href === currentPath) {
-                    link.classList.add("active");
-                }
-                });
-            });
-
-// Función para filtrar por periodo de tiempo 
-function populatePeriodFilters(selectedProcessIds = []) {
-  const periodInic = document.getElementById("periodInic");
-  const periodFin  = document.getElementById("periodFin");
-  if (!periodInic || !periodFin) return;
-
-  // 1) Obtener series por proceso
-  const yearsSet = new Set();
-
-  // Si no se seleccionó nada, usar todos los procesos (union)
-  const procesosFuente = (selectedProcessIds.length
-    ? procesosGlobal.filter(p => selectedProcessIds.includes(p.idPp))
-    : procesosGlobal
-  );
-
-  procesosFuente.forEach(proc => {
-    const serie = getProcessYearSeries(proc); // respeta overrides/caps/periodicidad
-    serie.forEach(y => yearsSet.add(y));
-  });
-
-  // Si no hay nada que mostrar, sal
-  if (yearsSet.size === 0) {
-    periodInic.innerHTML = '<option value="">Inicio</option>';
-    periodFin.innerHTML  = '<option value="">Fin</option>';
-    return;
-  }
-
-  // 2) Ordenar y limpiar selects
-  const sortedYears = Array.from(yearsSet).sort((a,b)=>a-b);
-  periodInic.innerHTML = '<option value="">Inicio</option>';
-  periodFin.innerHTML  = '<option value="">Fin</option>';
-
-  // 3) Rellenar opciones con los años calculados
-  sortedYears.forEach(y => {
-    periodInic.appendChild(new Option(y, y));
-    periodFin.appendChild(new Option(y, y));
-  });
-
-  // 4) Selecciones por defecto (min y max)
-  const minY = sortedYears[0];
-  const maxY = sortedYears[sortedYears.length - 1];
-  periodInic.value = String(minY);
-  periodFin.value  = String(maxY);
-
-  // 5) Asegurar rango válido si el usuario cambia
-  periodInic.onchange = () => {
-    const start = parseInt(periodInic.value, 10);
-    const end   = parseInt(periodFin.value, 10);
-    if (Number.isFinite(start) && Number.isFinite(end) && start > end) {
-      // mover fin hacia el mismo inicio
-      periodFin.value = String(start);
-    }
-  };
-  periodFin.onchange = () => {
-    const start = parseInt(periodInic.value, 10);
-    const end   = parseInt(periodFin.value, 10);
-    if (Number.isFinite(start) && Number.isFinite(end) && end < start) {
-      // mover inicio hacia el mismo fin
-      periodInic.value = String(end);
-    }
-  };
-}
-
-// Función principal de filtrado
-function filterByRelation() {
-    let filtered = allData;
-
-    const selectedStart = parseInt(document.getElementById("periodInic").value);
-    const selectedEnd = parseInt(document.getElementById("periodFin").value);
-
-//Filtro de periodo de tiempo
-        if (!isNaN(selectedStart) && !isNaN(selectedEnd)) {
-      filtered = filtered.filter(variable => {
-        const varStart = parseInt(variable.vigInicial);
-        const varEnd = (variable.vigFinal && String(variable.vigFinal).includes("A la fecha"))
-          ? new Date().getFullYear()
-          : parseInt(variable.vigFinal);
-
-        // Si no hay años válidos, NO la descartes (déjala pasar)
-        if (isNaN(varStart) || isNaN(varEnd)) return true;
-
-        return varStart <= selectedEnd && varEnd >= selectedStart;
-      });
-    }
-
-
-          // Filtro de relación (TABULADOS / MICRODATOS / DATOS ABIERTOS) con lógica OR (unión)
-      const wantsTab      = !!relTabCheckbox?.checked;
-      const wantsMicro    = !!relMicroCheckbox?.checked;
-      const wantsAbiertos = !!chkRelAbiertos?.checked;
-
-      if (wantsTab || wantsMicro || wantsAbiertos) {
-        filtered = filtered.filter(v => {
-          const okTab      = wantsTab      && (v.relTab === "Sí");
-          const okMicro    = wantsMicro    && hasMicrodatos(v);
-          const okAbiertos = wantsAbiertos && hasDatosAbiertos(v);
-
-          // ✅ unión: si cumple cualquiera de los seleccionados, pasa
-          return okTab || okMicro || okAbiertos;
         });
       }
 
+      currentFilteredData = [...allData];
+      renderPage(currentFilteredData, currentPage);
+      setupPagination(currentFilteredData);
 
+      if (loader) loader.style.display = "none";
+      if (mainContent) mainContent.style.display = "";
 
-    // Filtro de alineación con MDEA y ODS
-    if (alinMdeaCheckbox?.checked || alinOdsCheckbox?.checked) {
-        filtered = filtered.filter(variable => {
-            const matchMdea = alinMdeaCheckbox?.checked ? variable.alinMdea === "Sí" : true;
-            const matchOds = alinOdsCheckbox?.checked ? variable.alinOds === "Sí" : true;
-            return matchMdea && matchOds;
-        });
+      hideCounterSpinner();
+      aplicarFiltroDesdeURL();
+
+    } catch (error) {
+      console.error("Error al cargar las APIs unificadas:", error);
+      const loader = document.getElementById("loader");
+      if (loader) {
+        loader.innerHTML = `
+           <div class="alert alert-danger m-4">
+               <strong>Error de conexión:</strong> ${error.message}
+           </div>`;
+      }
+    }
+  }
+
+  // ==========================================
+  // LÓGICA DE FILTRADO Y ACTUALIZACIÓN UI
+  // ==========================================
+  function hasMicrodatos(v) { return v.microdatos && v.microdatos.toLowerCase() !== "no"; }
+  function hasDatosAbiertos(v) { return v.datosabiertos === true; }
+
+  function applyFilters() {
+    let filteredData = filterByUnidad(allData);
+
+    const selectedTema = temaSelect?.value;
+    if (selectedTema && selectedTema !== "Seleccione una temática") {
+      filteredData = filteredData.filter(v => (v.tema === selectedTema) || (v.tema2 === selectedTema));
     }
 
-    // Mostrar resultados
-    currentFilteredData = filtered;
+    const selectedProcesses = Array.from(processSelect?.selectedOptions || []).map(o => o.value);
+    if (selectedProcesses.length > 0) {
+      filteredData = filteredData.filter(v => selectedProcesses.includes(v.acronimo));
+    }
+
+    if (relTabCheckbox?.checked || relMicroCheckbox?.checked || chkRelAbiertos?.checked) {
+      filteredData = filteredData.filter(v => {
+        const okTab = relTabCheckbox.checked ? v.tabulados : true;
+        const okMicro = relMicroCheckbox.checked ? hasMicrodatos(v) : true;
+        const okAbiertos = chkRelAbiertos.checked ? hasDatosAbiertos(v) : true;
+        return okTab && okMicro && okAbiertos;
+      });
+    }
+
+    if (alinMdeaCheckbox?.checked || alinOdsCheckbox?.checked) {
+      filteredData = filteredData.filter(v => {
+        const okMdea = alinMdeaCheckbox.checked ? v.mdea : true;
+        const okOds = alinOdsCheckbox.checked ? v.ods : true;
+        return okMdea && okOds;
+      });
+    }
+
+    currentSearchTerm = (searchInput?.value || "").trim();
+    const needle = currentSearchTerm.toLowerCase();
+
+    if (needle) {
+      filteredData = filteredData.filter(v => {
+        const f =
+          (v.universo && v.universo.toLowerCase().includes(needle)) ||
+          (v.tema && v.tema.toLowerCase().includes(needle)) ||
+          (v.tema2 && v.tema2.toLowerCase().includes(needle)) ||
+          (v.subtema && v.subtema.toLowerCase().includes(needle)) ||
+          (v.subtema2 && v.subtema2.toLowerCase().includes(needle)) ||
+          (v.pregunta && v.pregunta.toLowerCase().includes(needle)) ||
+          (v.variableFuente && v.variableFuente.toLowerCase().includes(needle)) ||
+          (v.definicion && v.definicion.toLowerCase().includes(needle)) ||
+          (v.variable && v.variable.toLowerCase().includes(needle));
+
+        if (f) return true;
+
+        const list = window.clasifIndex.get(String(v.idVar)) || [];
+        return list.some(c => (c || "").toLowerCase().includes(needle));
+      });
+    }
+
+    filteredData = sortVariablesAZ(filteredData);
+    currentFilteredData = filteredData;
     currentPage = 1;
     renderPage(currentFilteredData, currentPage);
     setupPagination(currentFilteredData);
-}
+  }
 
-// Escuchar cambios en TODOS los checkboxes
-// Quitamos llamadas directas a filterByRelation y usamos SIEMPRE applyFilters()
-relTabCheckbox?.removeEventListener?.("change", filterByRelation);
-relMicroCheckbox?.removeEventListener?.("change", filterByRelation);
-chkRelAbiertos?.removeEventListener?.("change", filterByRelation);
-alinMdeaCheckbox?.removeEventListener?.("change", filterByRelation);
-alinOdsCheckbox?.removeEventListener?.("change", filterByRelation);
+  function onUnidadChange({ preserveSearch = true, preserveTema = true } = {}) {
+    const prevTerm = (searchInput.value || "").trim();
+    const prevTema = temaSelect.value || "";
 
-relTabCheckbox?.addEventListener("change", () => applyFilters());
-relMicroCheckbox?.addEventListener("change", () => applyFilters());
-chkRelAbiertos?.addEventListener("change", () => applyFilters());
-alinMdeaCheckbox?.addEventListener("change", () => applyFilters());
-alinOdsCheckbox?.addEventListener("change", () => applyFilters());
+    unidadFiltro = radioSocio.checked ? 'socio' : (radioEco.checked ? 'eco' : 'todas');
 
-
-
-if (unidadSection) unidadSection.style.display = "block";
-
-    //Mostrar y ocultar seccion de filtros Unidad administrativa dependiendo de condicional 
-    function checkMostrarUnidadSection() {
-    if (unidadSection) unidadSection.style.display = "block";
+    let allowedSet = null;
+    if (unidadFiltro !== 'todas') {
+      allowedSet = new Set((window.procesosGlobal || [])
+        .filter(p => {
+          const uStr = String(p.unidad || "").toLowerCase();
+          const isEco = uStr.includes("económica") || uStr.includes("economica");
+          return unidadFiltro === 'eco' ? isEco : !isEco;
+        })
+        .map(p => p.acronimo));
     }
 
-    // —— Skeletons helpers ——
-
-// Procesos (select) ----------------------
-function showProcessSkeleton() {
-  try {
-    processSelect.setAttribute('disabled', 'true');
-  } catch {}
-  // evita duplicar
-  if (document.getElementById('processSelectSkeleton')) return;
-
-  const sk = document.createElement('div');
-  sk.id = 'processSelectSkeleton';
-  sk.className = 'skeleton skeleton-select';
-  processSelect.insertAdjacentElement('afterend', sk);
-}
-function hideProcessSkeleton() {
-  processSelect?.removeAttribute('disabled');
-  document.getElementById('processSelectSkeleton')?.remove();
-}
-
-// Variables (listado) --------------------
-function showVariablesSkeleton(count = 6) {
-  container.innerHTML = "";
-  for (let i = 0; i < count; i++) {
-    const card = document.createElement('div');
-    card.className = 'skeleton skeleton-card mb-3';
-    container.appendChild(card);
-  }
-  // opcional: un par de chips fantasmas arriba/derecha
-  const chipsRow = document.createElement('div');
-  chipsRow.className = 'd-flex gap-2 mb-3';
-  chipsRow.innerHTML = `<span class="skeleton skeleton-chip"></span>
-                        <span class="skeleton skeleton-chip"></span>`;
-  container.prepend(chipsRow);
-}
-function hideVariablesSkeleton() {
-  // Limpia solo si el contenedor tiene puros skeletons
-  const onlySkeletons = Array.from(container.children).every(
-    n => n.classList && (n.classList.contains('skeleton') || n.querySelector?.('.skeleton'))
-  );
-  if (onlySkeletons) container.innerHTML = "";
-}
-
-// —— SPINNER en contador Total de Variables ——
-function showCounterSpinner() {
-  const cardBody = document.querySelector('#variableCounter .card .card-body');
-  if (!cardBody || cardBody.querySelector('.counter-spinner')) return;
-
-  const box = document.createElement('div');
-  box.className = 'counter-spinner d-flex align-items-center gap-2 mt-1';
-  box.innerHTML = `
-    <div class="spinner-border spinner-border-sm text-secondary" role="status" aria-hidden="true"></div>
-    <small class="text-secondary">Contando…</small>
-  `;
-  cardBody.appendChild(box);
-}
-function hideCounterSpinner() {
-  document.querySelector('.counter-spinner')?.remove();
-}
-
-// —— SPINNER centrado en el listado de variables ——
-function showListSpinner() {
-  // no duplicar
-  if (document.getElementById('listSpinner')) return;
-  // asegurar posicionamiento relativo del contenedor
-  if (!container.style.position) container.style.position = 'relative';
-
-  const wrap = document.createElement('div');
-  wrap.id = 'listSpinner';
-  wrap.className = 'position-absolute top-50 start-50 translate-middle text-center';
-  wrap.innerHTML = `
-    <div class="spinner-border" role="status" aria-hidden="true"></div>
-    <div class="mt-2 small text-secondary">Cargando variables…</div>
-  `;
-  container.appendChild(wrap);
-}
-function hideListSpinner() {
-  document.getElementById('listSpinner')?.remove();
-}
-
-// 🔁 Permitir selección múltiple solo con clic (sin Ctrl)
-processSelect.addEventListener("mousedown", function (e) {
-  e.preventDefault(); // evita el comportamiento por defecto
-  const option = e.target;
-  if (option && option.tagName === "OPTION") {
-    option.selected = !option.selected; // alterna selección
-    processSelect.dispatchEvent(new Event("change")); // dispara evento manualmente
-  }
-});
-let listenersWired = false;
-// ✅ Listener de cambio del select de procesos
-if (!listenersWired) {
-  processSelect.addEventListener("change", () => {
-    const selected = Array.from(processSelect.selectedOptions).map(o => o.value);
-    populatePeriodFilters(selected);
-    repoblarTematicas();
-    handleProcessSelectChange(); // <-- mantiene el renderizado y contador
-  });
-  listenersWired = true;
-}
-
-
-
-function onUnidadChange({ preserveSearch = true, preserveTema = true } = {}) {
-  // 0) Snapshot del estado actual (solo para preservar)
-  const prevTerm = (searchInput.value || "").trim();
-  const prevTema = temaSelect.value || "";
-
-  // 1) Nueva unidad
-  unidadFiltro = radioSocio.checked ? 'socio' : (radioEco.checked ? 'eco' : 'todas');
-
-  // 2) idPp permitidos por unidad
-  let allowedSet = null;
-  if (unidadFiltro === 'socio') {
-    allowedSet = (socioSet && socioSet.size)
-      ? socioSet
-      : new Set((procesosGlobal || [])
-          .filter(p => getUnidadDeVariable({ idPp: p.idPp }) === 'socio')
-          .map(p => p.idPp));
-  } else if (unidadFiltro === 'eco') {
-    allowedSet = (ecoSet && ecoSet.size)
-      ? ecoSet
-      : new Set((procesosGlobal || [])
-          .filter(p => p._source === 'economicas')
-          .map(p => p.idPp));
-  }
-
-  // 3) Mostrar/ocultar opciones del select de procesos y limpiar selecciones inválidas
-  Array.from(processSelect.options).forEach(opt => {
-    const allowed = (unidadFiltro === 'todas') ? true : (allowedSet ? allowedSet.has(opt.value) : true);
-    opt.hidden = !allowed;
-    if (!allowed && opt.selected) opt.selected = false;
-  });
-
-  // 4) Series de años
-  const stillSelected = Array.from(processSelect.selectedOptions).map(o => o.value);
-  if (stillSelected.length > 0) {
-    populatePeriodFilters(stillSelected);
-  } else if (unidadFiltro !== 'todas' && allowedSet && allowedSet.size) {
-    populatePeriodFilters(Array.from(allowedSet));
-  } else {
-    populatePeriodFilters([]); // todas
-  }
-
-  // 5) Mantener o no el término de búsqueda (NO afecta las temáticas)
-  if (!preserveSearch) {
-    searchInput.value = "";
-    currentSearchTerm = "";
-    if (typeof lastSubmittedTerm !== "undefined") lastSubmittedTerm = null;
-  } else {
-    searchInput.value = prevTerm;
-    currentSearchTerm = prevTerm; // <-- esto hará que applyFilters combine UNIDAD + SEARCH
-  }
-
-  // 6) Repoblar temáticas por UNIDAD (+ procesos). No uses el término de búsqueda aquí.
-  repoblarTematicas();
-
-  // 7) Si el tema previo sigue existiendo en el nuevo catálogo, conservarlo
-  if (preserveTema && prevTema && Array.from(temaSelect.options).some(o => o.value === prevTema)) {
-    temaSelect.value = prevTema;
-  } else if (!preserveTema) {
-    temaSelect.selectedIndex = 0;
-  }
-
-  // 8) Refiltrar el select de procesos según la temática vigente (unidad + tema)
-  const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática") ? temaSelect.value : "";
-  filtrarProcessSelectPorTema(temaActual);
-
-  // 9) Chips de procesos
-  renderSelectedTags(Array.from(processSelect.selectedOptions));
-
-  // 10) Aplicar filtros (unifica: UNIDAD + TEMA + PROCESO + CHECKS + BÚSQUEDA)
-  applyFilters();
-
-  // 11) UI visible
-  if (unidadSection) unidadSection.style.display = "block";
-}
-
-
-// 👇 Reemplaza TODOS los listeners previos de unidad por estos dos:
-radioSocio.addEventListener('change', () =>
-  onUnidadChange({ preserveSearch: true, preserveTema: true })
-);
-radioEco.addEventListener('change', () =>
-  onUnidadChange({ preserveSearch: true, preserveTema: true })
-);
-
-
-
-// Tras cargar procesos/variables:
-populatePeriodFilters([]); // sin selección inicial -> usa unión de todos
-
-// 🔍 Aplicar filtro desde la URL si hay `idPp`
-let filtroURLAplicado = false;
-
-function aplicarFiltroDesdeURL() {
-  if (filtroURLAplicado) return;
-  const urlParams    = new URLSearchParams(window.location.search);
-  const selectedIdPp = urlParams.get("idPp");
-  const searchTerm   = urlParams.get("search");
-
-  // si no hay filtros en URL, solo dejar que el flujo normal pinte una vez
-  if (!selectedIdPp && !searchTerm) return;
-
-  // 🔒 bloquea renders “por defecto”
-  renderLocked = true;
-
-  const apply = () => {
-    // 1) proceso (si viene)
-    if (selectedIdPp) {
-      Array.from(processSelect.options).forEach(opt => {
-        opt.selected = (opt.value === selectedIdPp);
-      });
-      processSelect.dispatchEvent(new Event("change")); // esto ya pinta filtrado
-    }
-
-    // 2) search (si viene): se aplica sobre el estado actual (ya filtrado por proceso si lo había)
-    if (searchTerm) {
-      searchInput.value = searchTerm.trim();
-      const base = (Array.isArray(currentFilteredData) && currentFilteredData.length)
-        ? currentFilteredData
-        : allData;
-
-      const needle = searchTerm.toLowerCase();
-      const filtered = base.filter(v =>
-        (v.nomVar  && v.nomVar.toLowerCase().includes(needle)) ||
-        (v.defVar  && v.defVar.toLowerCase().includes(needle)) ||
-        (v.varAsig && v.varAsig.toLowerCase().includes(needle))
-      );
-
-      currentFilteredData = filtered;
-      currentPage = 1;
-
-      if (!filtered.length) {
-        container.innerHTML = "<p class='text-center'>No se encontraron resultados para el término ingresado.</p>";
-        paginationContainer.innerHTML = "";
-        updateVariableCounter(0);
-      } else {
-        renderPage(currentFilteredData, currentPage);
-        setupPagination(currentFilteredData);
-        updateVariableCounter(filtered.length);
-      }
-    }
-
-    // ✅ aplicar una única vez
-    filtroURLAplicado = true;
-    window.initialPaintDone = true;
-  window.renderLocked = false;
-  };
-
-  // esperamos a que select + datos estén listos
-  const start = Date.now();
-  (function waitReady(){
-    const selectReady = processSelect && processSelect.options.length > 0;
-    const dataReady   = Array.isArray(allData) && allData.length > 0;
-    if (selectReady && dataReady) return apply();
-    if (Date.now() - start > 10000) { // fallback por si algo falla
-      renderLocked = false;
-      return;
-    }
-    setTimeout(waitReady, 60);
-  })();
-}
-
-// Utilidad
-
-// ✅ Función central de cambio del select (REEMPLAZA LA TUYA)
-function handleProcessSelectChange() {
-  const selectedOptions = Array.from(processSelect.selectedOptions);
-  renderSelectedTags(selectedOptions);   // chips
-  checkMostrarUnidadSection();           // si lo necesitas visible siempre
-  applyFilters();                        // 👈 aquí se combinan unidad + temática + proceso + demás
-}
-
-// Renderiza los "chips" de procesos seleccionados
-function renderSelectedTags(selectedOptions) {
-  const chips = document.getElementById("processSelectContainer");
-  if (!chips) return;
-  chips.replaceChildren(); // limpia seguro
-
-  selectedOptions.forEach((opt) => {
-    // Toma el texto visible del <option>
-    const label =
-      (typeof opt.label === "string" && opt.label.trim()) ? opt.label :
-      (typeof opt.text  === "string" && opt.text.trim())  ? opt.text  :
-      (opt.textContent || "").trim()                      ? opt.textContent.trim() :
-      String(opt.value);
-
-    const tag = document.createElement("span");
-    tag.className = "badge bg-primary d-inline-flex align-items-center me-2 mb-1";
-    tag.style.paddingRight = "0.5rem";
-
-    // 🔒 No uses innerHTML para el texto; usa textNode
-    tag.append(document.createTextNode(label));
-
-    const closeBtn = document.createElement("button");
-    closeBtn.type = "button";
-    closeBtn.className = "btn-close btn-close-white btn-sm ms-2";
-    closeBtn.setAttribute("aria-label", "Eliminar");
-    closeBtn.addEventListener("click", () => {
-      opt.selected = false; // des-selecciona el proceso
-      processSelect.dispatchEvent(new Event("change")); // re-filtra y repinta
+    Array.from(processSelect.options).forEach(opt => {
+      const allowed = (unidadFiltro === 'todas') ? true : (allowedSet ? allowedSet.has(opt.value) : true);
+      opt.hidden = !allowed;
+      if (!allowed && opt.selected) opt.selected = false;
     });
 
-    tag.append(closeBtn);
-    chips.appendChild(tag);
-  });
-}
-
-    
-  // Filtrado por temática
-  temaSelect.addEventListener("change", function () {
-      const selectedValue = this.value;
-      checkMostrarUnidadSection()
-      if (!selectedValue || selectedValue === "Seleccione una temática") {
-          //renderPage(allData, 1);
-          setupPagination(allData);
-          return;
-      }
-
-      // Filtrar por coincidencia exacta en tema o tema2
-      const filteredData = allData.filter(variable =>
-          variable.tema === selectedValue || variable.tema2 === selectedValue
-      );
-
-      if (filteredData.length === 0) {
-          container.innerHTML = "<p class='text-center'>No hay variables para la temática seleccionada.</p>";
-          paginationContainer.innerHTML = "";
-          return;
-      }
-
-      currentPage = 1;
-          currentFilteredData = filteredData;
-  renderPage(currentFilteredData, currentPage);
-  setupPagination(currentFilteredData);
-
-  });
-    
-
-clearFiltersBtn.addEventListener("click", function () {
-  // 0) Romper el highlight
-  currentSearchTerm = "";                 // ⬅️ quita el término global
-  searchInput.value = "";                 // limpia el input
-  lastSubmittedTerm = null;
-  // 1) Campos/selects
-  temaSelect.selectedIndex = 0;           // o "" si tu placeholder es opción vacía
-  itemsPerPageSelect.selectedIndex = 0;
-  sortSelect.selectedIndex = 0;
-
-  // 2) Procesos múltiple
-  Array.from(processSelect.options).forEach(option => {
-    option.selected = false;
-    option.hidden = false;               // vuelve a mostrar todos
-  });
-
-  // 3) Chips visuales
-  const chipsContainer = document.getElementById("processSelectContainer");
-  if (chipsContainer) chipsContainer.innerHTML = "";
-
-  // 4) Checkboxes
-  relTabCheckbox.checked = false;
-  relMicroCheckbox.checked = false;
-  chkRelAbiertos.checked = false; // ← NUEVO
-  alinMdeaCheckbox.checked = false;
-  alinOdsCheckbox.checked = false;
-
-  // 5) Periodos
-  const periodInic = document.getElementById("periodInic");
-  const periodFin  = document.getElementById("periodFin");
-  if (periodInic) periodInic.selectedIndex = 0;
-  if (periodFin)  periodFin.selectedIndex  = 0;
-
-  // 6) Unidad (mantener visible, limpiar selección)
-  if (radioSocio) radioSocio.checked = false;
-  if (radioEco)   radioEco.checked   = false;
-  if (unidadSection) unidadSection.style.display = "block";
-  unidadFiltro = "todas";
-
-  // 7) Repoblar catálogos dependientes
-  repoblarTematicas();                   // todas las unidades
-  const temaActual = "";                 // sin tema
-  filtrarProcessSelectPorTema?.(temaActual); // si tienes esta función
-
-  // 8) Re-render sin highlight (porque currentSearchTerm="", ver paso 0)
-  currentPage = 1;
-  currentFilteredData = [...allData];
-  renderPage(currentFilteredData, currentPage);
-  setupPagination(currentFilteredData);
-  updateVariableCounter(allData.length);
-
-  // 9) Limpiar querystring
-  const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-  window.history.replaceState({}, document.title, newUrl);
-});
-
-    // Función para cargar todos los elementos al entrar a la página
-
-
-// Buscar variables por término ingresado
-function searchVariables(term) {
-  if (!term) {
-    renderPage(allData, 1);
-    setupPagination(allData);
-    return;
-  }
-
-  const filteredData = allData.filter(variable =>
-    variable.nomVar.toLowerCase().includes(term.toLowerCase()) ||
-    variable.defVar.toLowerCase().includes(term.toLowerCase()) ||
-    variable.varAsig.toLowerCase().includes(term.toLowerCase())
-  );
-
-  if (filteredData.length === 0) {
-    container.innerHTML = "<p class='text-center'>No se encontraron resultados.</p>";
-    paginationContainer.innerHTML = "";
-  } else {
-    renderPage(filteredData, 1);
-    setupPagination(filteredData);
-  }
-}
-
-// Actualizar el número total de variables mostradas
-function updateVariableCounter(count) {
-    const totalVariablesElement = document.getElementById('totalVariables');
-    if (!totalVariablesElement) return;
-
-    // Lee valor actual, acepta comas o espacios
-    const raw = String(totalVariablesElement.textContent || '').replace(/[^0-9]/g, '');
-    const current = parseInt(raw, 10) || 0;
-    const to = Math.max(0, Number(count) || 0);
-
-    // Formateador con espacio como separador de miles: 1719 -> "1 719"
-    function formatWithSpace(n) {
-      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    if (!preserveSearch) {
+      searchInput.value = "";
+      currentSearchTerm = "";
+      lastSubmittedTerm = null;
+    } else {
+      searchInput.value = prevTerm;
+      currentSearchTerm = prevTerm;
     }
 
-    if (current === to) {
-      totalVariablesElement.textContent = formatWithSpace(to);
+    repoblarTematicas();
+
+    if (preserveTema && prevTema && Array.from(temaSelect.options).some(o => o.value === prevTema)) {
+      temaSelect.value = prevTema;
+    } else if (!preserveTema) {
+      temaSelect.selectedIndex = 0;
+    }
+
+    renderSelectedTags(Array.from(processSelect.selectedOptions));
+    applyFilters();
+  }
+
+  // ==========================================
+  // EVENT LISTENERS
+  // ==========================================
+  radioSocio?.addEventListener('change', () => onUnidadChange());
+  radioEco?.addEventListener('change', () => onUnidadChange());
+  relTabCheckbox?.addEventListener("change", applyFilters);
+  relMicroCheckbox?.addEventListener("change", applyFilters);
+  chkRelAbiertos?.addEventListener("change", applyFilters);
+  alinMdeaCheckbox?.addEventListener("change", applyFilters);
+  alinOdsCheckbox?.addEventListener("change", applyFilters);
+  temaSelect?.addEventListener("change", applyFilters);
+
+  itemsPerPageSelect?.addEventListener("change", function () {
+    itemsPerPage = parseInt(this.value, 10);
+    applyFilters();
+  });
+
+  sortSelect?.addEventListener("change", function () {
+    applyFilters();
+  });
+
+  searchForm?.addEventListener("submit", function (e) {
+    e.preventDefault();
+    const term = (searchInput.value || "").trim();
+    if (term === lastSubmittedTerm) return;
+    lastSubmittedTerm = term;
+    applyFilters();
+  });
+
+  processSelect?.addEventListener("change", () => {
+    renderSelectedTags(Array.from(processSelect.selectedOptions));
+    applyFilters();
+  });
+
+  clearFiltersBtn?.addEventListener("click", function () {
+    currentSearchTerm = "";
+    searchInput.value = "";
+    lastSubmittedTerm = null;
+    temaSelect.selectedIndex = 0;
+    itemsPerPageSelect.selectedIndex = 0;
+    sortSelect.selectedIndex = 0;
+
+    Array.from(processSelect.options).forEach(option => {
+      option.selected = false;
+      option.hidden = false;
+    });
+
+    document.getElementById("processSelectContainer").innerHTML = "";
+    if (relTabCheckbox) relTabCheckbox.checked = false;
+    if (relMicroCheckbox) relMicroCheckbox.checked = false;
+    if (chkRelAbiertos) chkRelAbiertos.checked = false;
+    if (alinMdeaCheckbox) alinMdeaCheckbox.checked = false;
+    if (alinOdsCheckbox) alinOdsCheckbox.checked = false;
+    
+    if (radioSocio) radioSocio.checked = false;
+    if (radioEco) radioEco.checked = false;
+    unidadFiltro = "todas";
+
+    repoblarTematicas();
+    applyFilters();
+
+    const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+  });
+
+  // Permitir selección múltiple solo con clic (sin Ctrl)
+  processSelect?.addEventListener("mousedown", function (e) {
+    e.preventDefault(); 
+    const option = e.target;
+    if (option && option.tagName === "OPTION") {
+      option.selected = !option.selected;
+      processSelect.dispatchEvent(new Event("change"));
+    }
+  });
+
+  // ==========================================
+  // HELPERS DE RENDERIZADO UI
+  // ==========================================
+  function sortVariablesAZ(data) {
+    const sortVal = sortSelect?.value || "az";
+    return [...data].sort((a, b) => {
+      const nameA = (a.variable || "").toLowerCase();
+      const nameB = (b.variable || "").toLowerCase();
+      if (sortVal === "az") return nameA.localeCompare(nameB);
+      if (sortVal === "za") return nameB.localeCompare(nameA);
+      return 0;
+    });
+  }
+
+  function repoblarTematicas() {
+    if (!temaSelect) return;
+    const prev = temaSelect.value;
+    const base = filterByUnidad(allData);
+    const setTemas = new Set();
+
+    base.forEach(v => {
+      if (v.tema && v.tema !== "-") setTemas.add(v.tema);
+      if (v.tema2 && v.tema2 !== "-") setTemas.add(v.tema2);
+    });
+
+    const temas = Array.from(setTemas).sort((a, b) => a.localeCompare(b));
+    temaSelect.innerHTML = '<option value="">Seleccione una temática</option>';
+    temas.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      temaSelect.appendChild(opt);
+    });
+
+    if (prev && temas.includes(prev)) temaSelect.value = prev;
+  }
+
+  function renderSelectedTags(selectedOptions) {
+    const chips = document.getElementById("processSelectContainer");
+    if (!chips) return;
+    chips.replaceChildren(); 
+    selectedOptions.forEach((opt) => {
+      const tag = document.createElement("span");
+      tag.className = "badge bg-primary d-inline-flex align-items-center me-2 mb-1";
+      tag.style.paddingRight = "0.5rem";
+      tag.append(document.createTextNode(opt.text));
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "btn-close btn-close-white btn-sm ms-2";
+      closeBtn.addEventListener("click", () => {
+        opt.selected = false;
+        processSelect.dispatchEvent(new Event("change"));
+      });
+      tag.append(closeBtn);
+      chips.appendChild(tag);
+    });
+  }
+
+  function updateVariableCounter(count) {
+    const el = document.getElementById('totalVariables');
+    if (el) el.textContent = String(count).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  function highlightTerm(text, term) {
+    if (!term) return text;
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return text.replace(regex, '<mark class="custom-highlight">$1</mark>');
+  }
+
+  function rebuildClasifIndex() {
+    window.clasifIndex.clear();
+    if (!window.clasificacionesGlobal) return;
+    window.clasificacionesGlobal.forEach(row => {
+      const id = String(row.ida || row.id_a || row.idVar || "").trim();
+      const name = String(row.clase || row.clasificacion || row.clasificaciones || "").trim();
+      if (!id || !name || name === "-") return;
+      if (!window.clasifIndex.has(id)) window.clasifIndex.set(id, []);
+      window.clasifIndex.get(id).push(name);
+    });
+  }
+
+  function getClasificacionesPorVariableHighlighted(variable, term = "") {
+    const id = String(variable.id_a || variable.id_s || variable.idVar || "").trim();
+    const list = window.clasifIndex.get(id) || [];
+    if (!list.length) return `<span class="text-muted ms-1">Sin clasificación</span>`;
+    
+    const htmlList = list.map(c => `<li style="margin-bottom: 2px;">${term ? highlightTerm(c, term) : c}</li>`).join("");
+    return `<ul class="mb-0 ps-4 text-dark fw-normal" style="margin-top: 4px;">${htmlList}</ul>`;
+  }
+// Helper para pintar el nombre del componente MDEA
+  function getMdeaComponentLabel(num) {
+    const MDEA_COMPONENTS = {
+      1: "Condiciones y calidad ambiental",
+      2: "Recursos ambientales y su uso",
+      3: "Residuos y actividades humanas relacionadas",
+      4: "Eventos extremos y desastres",
+      5: "Asentamientos humanos y salud ambiental",
+      6: "Protección ambiental y participación ciudadana"
+    };
+    return MDEA_COMPONENTS[num] ? `${num}. ${MDEA_COMPONENTS[num]}` : `Componente ${num}`;
+  }
+
+  // ==========================================
+  // RENDERIZADO DE LAS TARJETAS HTML (LISTADO)
+  // ==========================================
+  function renderPage(data, page) {
+    if (!container) return;
+    container.innerHTML = "";
+    updateVariableCounter(data.length);
+
+    if (data.length === 0) {
+      if (paginationContainer) paginationContainer.innerHTML = "";
+      container.innerHTML = `<div class="alert alert-warning text-center">No se encontraron variables con los filtros aplicados.</div>`;
       return;
     }
 
-    const duration = 600; // ms de animación
-    const start = performance.now();
-    const from = current;
+    const startIndex = (page - 1) * itemsPerPage;
+    const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
 
-    function step(now) {
-      const t = Math.min(1, (now - start) / duration);
-      const value = Math.round(from + (to - from) * t);
-      totalVariablesElement.textContent = formatWithSpace(value);
-      if (t < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-}
+    paginatedData.forEach((variable, index) => {
+      const unit = getUnidadDeVariable(variable); // 'eco' o 'socio'
+      const unitCls = (unit === 'eco') ? 'acc-eco' : 'acc-socio';
 
-// Ordenar variables alfabéticamente por varAsig al cargar y al aplicar filtros
-function sortVariablesAZ(data) {
-  return [...data].sort((a, b) => {
-    const nameA = (a.varAsig || "").toLowerCase();
-    const nameB = (b.varAsig || "").toLowerCase();
-    return nameA.localeCompare(nameB);
-  });
-}
+      const textoProc = variable.acronimo || '—';
+      const badgeProcHTML = textoProc !== '—' ? `<span class="badge ms-2 bg-secondary">${textoProc}</span>` : '';
 
-// 🔁 CARGA INICIAL “TODO ANTES DE PINTAR”
-showProcessSkeleton();
-showVariablesSkeleton(8);
+      const term = currentSearchTerm;
+      const hVarAsig = highlightTerm(variable.variable, term);
+      const hPregLit = highlightTerm(variable.pregunta, term);
+      const hDefVar = highlightTerm(variable.definicion, term);
+      const hNomVar = highlightTerm(variable.variableFuente, term);
+      const huniverso = highlightTerm(variable.tematica, term);
+      const hTema = highlightTerm(variable.tema, term);
+      const hSubtema = highlightTerm(variable.subtema, term);
+      const hTema2 = highlightTerm(variable.tema2, term);
+      const hSubtema2 = highlightTerm(variable.subtema2, term);
 
-// NUEVOS spinners
-showCounterSpinner();
-showListSpinner();
+      // 1. Lógica para "Consulta de datos en:"
+      const activeTab = variable.tabulados;
+      const activeMic = hasMicrodatos(variable);
+      const activeAbt = variable.datosabiertos;
 
-// Llamamos a la nueva función centralizada para cargar la página
-  cargarDatosIniciales();
-// 1. Cargar eventos antes de llamar a renderPage
-// --- Helpers: leer periodicidad, rango y último año por proceso ---
-// Deshabilitar anchors en el nodo destacado (amarillo) a nivel global:
-
-// Tope general si vigFinal == "A la fecha" (cuando no haya override específico)
-const DEFAULT_END_YEAR_CAP = 2024;
-
-// Reglas por proceso (idPp)
-const SPECIAL_RULES = {
-  
-  CPV: {
-    seriesOverride: [1895,1900,1910,1921,1930,1940,1950,1960,1970,1980,1990,1995,2000,2005,2010,2020],
-    capYear: 2020,
-    greenFromYear: 1950,
-    noLinks: true, // además de DISABLE_LINKS_ON_HIT global, forzamos en CPV
-  },
-  EIC:   {  capYear: 2015 },
-  ENIGH: { capYear: 2022, greenFromYear: 2016 },
-  ENADID: {
-  seriesOverride: [1992, 1997, 2006, 2009, 2014, 2018],
-  capYear: 2023,
-  lastYearOverride: 2023
-  },
-  ENBIARE: { seriesOverride: [2021], capYear: 2021 },
-  EM: { capYear: 2023 },
-  ENUT: { seriesOverride: [2002, 2009, 2014, 2019], capYear: 2019 },
-  ENILEMS: {
-    seriesOverride: [2012, 2016, 2019],
-    capYear: 2019,
-    lastYearOverride: 2019   // ⬅️ Fuerza el nodo amarillo en 2019 para todas las variables
-  },
-  ENASEM: {  capYear: 2021,
-    lastYearOverride: 2021 },
-  ENIF: { seriesOverride: [2012, 2015, 2018, 2021], capYear: 2021, lastYearOverride: 2021},
-  EFL: { capYear: 2019 },
-  ENTI: { periodicityOverride: 3, capYear: 2022 },
-  ENASIC: { seriesOverride: [2022], capYear: 2022 },
-  ENCO: { lastYearOverride: 2021, capYear: 2021 }, // resaltar 2021 en amarillo
-    ENA: {
-    seriesOverride: [2012, 2014, 2017, 2019],
-    capYear: 2019
-  },
-};
-
-const ECON_CAPS = {
-  ATUS:   2023,
-  BCMM:   2024,
-  EAC:    2024,
-  EAEC:   2024,
-  EAIM:   2024,
-  EAT:    2024,
-  EFIPEM: 2023,
-  EIMM:   2024,
-  EMIM:   2024,
-  ENA:    2019,
-  ENAF:   2020,
-  ESGRM:  2024,
-  ETUP:   2024,
-  IMMEX:  2025,
-  RAECIS: 2023,
-  RENEM:  2024,
-};
-
-// Fusiona ECON_CAPS dentro de SPECIAL_RULES como capYear (sin pisar otras reglas)
-for (const [idPp, cap] of Object.entries(ECON_CAPS)) {
-  SPECIAL_RULES[idPp] = { ...(SPECIAL_RULES[idPp] || {}), capYear: cap };
-}
-
-// Regla global: el nodo destacado (amarillo) no tiene link
-const DISABLE_LINKS_ON_HIT = false;
-
-// Lista de respaldo de procesos que consideramos Sociodemográficos.
-// (Si tu backend ya expone proc.unidad === 'Sociodemográficas', esto es solo fallback.)
-const SOCIODEMOG_PP = new Set([
-  'CPV','ENADID','ENIGH','ENUT','ENOE','ENASIC','ENBIARE','ENILEMS','ENTI','ENIF','ENCO'
-]);
-
-function isSociodemografica(variable, proc) {
-  const uVar  = (variable?._unidad || '').toLowerCase();
-  const uProc = (proc?.unidad || '').toLowerCase();
-  const idpp  = normIdPp(proc?.idPp || variable?.idPp || '');
-  return (
-    uVar.includes('sociodemogr') ||
-    uProc.includes('sociodemogr') ||
-    SOCIODEMOG_PP.has(idpp)
-  );
-}
-
-const ECON_PP = new Set(Object.keys(ECON_CAPS)); // o declara explícitamente los idPp económicos
-
-function isEconomica(variable, proc) {
-  const uVar  = (variable?._unidad || '').toLowerCase();
-  const uProc = (proc?.unidad || '').toLowerCase();
-  const idpp  = normIdPp(proc?.idPp || variable?.idPp || '');
-  return (
-    (variable?._source === 'economicas-ultima') ||
-    uVar.includes('económ') ||
-    uProc.includes('económ') ||
-    ECON_PP.has(idpp)
-  );
-}
-
-// Construye un mapa { año:number -> url:string } usando fuenteIden
-function mapEnlacesPorAnio(eventos, idVar) {
-  const map = new Map();
-  if (!Array.isArray(eventos)) return map;
-  for (const ev of eventos) {
-    if ((ev?.idVar || '').trim() !== String(idVar).trim()) continue;
-    const y = parseInt(String(ev?.evento ?? ev?.anioEvento ?? '').trim(), 10);
-    const url = (ev?.fuenteIden || '').trim();
-    if (Number.isFinite(y) && url && !map.has(y)) {
-      map.set(y, url);
-    }
-  }
-  return map;
-}
-
-// Envuelve el año como enlace (target _blank) cuando hay URL
-function wrapYearWithLink(y, url) {
-  const safe = encodeURI(url);
-  return `<a class="tl-link" href="${safe}" target="_blank" rel="noopener noreferrer" aria-label="Abrir fuente del ${y}">${y}</a>`;
-}
-
-
-function normIdPp(id) {
-  return String(id || '').trim().toUpperCase();
-}
-// Helpers existentes (usa los que ya tienes)
-function parseYearSafe(v) {
-  const n = parseInt(String(v).trim(), 10);
-  return Number.isFinite(n) ? n : null;
-}
-
-function parsePeriodicidadAnios(s) {
-  if (!s) return 1;
-  const txt = String(s).toLowerCase();
-  if (txt.includes('anual')) return 1;
-  if (txt.includes('bienal')) return 2;
-  if (txt.includes('trienal')) return 3;
-  if (txt.includes('quinquenal')) return 5;
-  const m = txt.match(/cada\s+(\d+)\s*años?/);
-  if (m) return Math.max(1, parseInt(m[1], 10));
-  return 1;
-}
-
-function buildYearSeries(startYear, endYear, step) {
-  const years = [];
-  for (let y = startYear; y <= endYear; y += step) years.push(y);
-  if (years.length && years[years.length - 1] !== endYear) years.push(endYear);
-  return years;
-}
-
-// Resolver fin de vigencia con reglas
-function resolveEndYear(proc) {
-  const rule = SPECIAL_RULES[normIdPp(proc.idPp)];
-  if (rule?.capYear) return rule.capYear;
-
-  const v = String(proc.vigFinal || '').toLowerCase();
-  if (v.includes('fecha')) return DEFAULT_END_YEAR_CAP; // 2020 por defecto
-  return parseYearSafe(proc.vigFinal);
-}
-
-// Serie por proceso (override > periodicidad)
-function getProcessYearSeries(proc) {
-  const rule = SPECIAL_RULES[normIdPp(proc.idPp)];
-
-  if (Array.isArray(rule?.seriesOverride)) {
-    let years = rule.seriesOverride
-      .map(y => parseInt(y, 10))
-      .filter(Number.isFinite);
-
-    // Si capYear es mayor que el último año de la serie, agrégalo
-    if (rule.capYear && !years.includes(rule.capYear)) {
-      years.push(rule.capYear);
-    }
-
-    years = years.filter(y => y <= rule.capYear); // sigue filtrando por capYear
-    return years.sort((a,b)=>a-b);
-  }
-
-  const startYear = parseYearSafe(proc.vigInicial);
-  const endYear = resolveEndYear(proc);
-  if (!startYear || !endYear || endYear < startYear) return [];
-
-  const step = rule?.periodicityOverride ?? parsePeriodicidadAnios(proc.perPubResul || proc.perioProd || 'Anual');
-  let years = buildYearSeries(startYear, endYear, step);
-  if (years.length && years[years.length - 1] !== endYear) years.push(endYear);
-  return years.sort((a,b)=>a-b);
-}
-
-function getEventYearsForVar(idVar, eventosRelacionados, variableOpt) {
-  // 1) Usa lo que te pasaron (backend local)
-  let fuente = Array.isArray(eventosRelacionados) ? eventosRelacionados : [];
-
-  // 2) Si está vacío y la variable es económica con _eventosList, úsalo
-  if ((!fuente.length) && variableOpt && variableOpt._source === 'economicas-ultima' && Array.isArray(variableOpt._eventosList)) {
-    fuente = variableOpt._eventosList.map(e => ({ evento: e.evento ?? e.anioEvento }));
-  }
-
-  const años = new Set();
-  for (const ev of fuente) {
-    const y = parseInt(String(ev.anioEvento ?? ev.evento ?? '').trim(), 10);
-    if (Number.isFinite(y)) años.add(y);
-  }
-  return Array.from(años).sort((a,b)=>a-b);
-}
-
-
-// ⚠️ Reemplaza sólo esta función
-function construirLineaDeTiempoVariable(variable, eventosRelacionados) {
-  try {
-    const proc = procesosGlobal?.find(p => p.idPp === variable.idPp);
-    if (!proc) return construirLineaDeTiempo(eventosRelacionados);
-
-    // Serie base (rango por proceso)
-    let years = getProcessYearSeries(proc);
-    if (!years.length) return construirLineaDeTiempo(eventosRelacionados);
-
-    // Años con evento (para colorear en verde)
-    const eventYears = getEventYearsForVar(variable.idVar, eventosRelacionados, variable);
-    const greenYearsSet = new Set(eventYears);
-
-    // Determinar año "hit" (amarillo)
-    
-    const rule = SPECIAL_RULES[normIdPp(proc.idPp)];
-    const esEco = isEconomica(variable, proc);
-    let hitYear = null;
-
-    // 1) ECONÓMICAS: usar SIEMPRE el año más reciente con evento
-    if (esEco && eventYears.length) {
-      hitYear = eventYears[eventYears.length - 1]; // max (eventYears viene ascendente)
-    }
-
-    // 2) Si no es Económica (o no hay eventos), respeta overrides por proceso
-    if (!hitYear && rule && rule.lastYearOverride) {
-      hitYear = rule.lastYearOverride;
-    }
-
-    // 3) SOCIODEMOGRÁFICAS u otros: si hay eventos, usar el más reciente
-    if (!hitYear && eventYears.length) {
-      hitYear = eventYears[eventYears.length - 1];
-    }
-
-    // 4) ÚLTIMO recurso (solo si NO es económica): permitir _anioReferencia
-    if (!hitYear && variable._source !== 'economicas-ultima' && Number.isFinite(variable._anioReferencia)) {
-      hitYear = variable._anioReferencia;
-    }
-
-    // Asegura que el HIT se vea aunque quede fuera del rango/override
-    if (hitYear && !years.includes(hitYear)) {
-      years.push(hitYear);
-      years.sort((a,b)=>a-b);
-    }
-
-
-    // Enlaces por año SOLO si la variable/proceso es Sociodemográfica
-    const sociodemo = isSociodemografica(variable, proc);
-    const enlacesPorAnio = sociodemo ? mapEnlacesPorAnio(eventosRelacionados, variable.idVar) : new Map();
-
-    // Construcción de nodos
-    const items = years.map(y => {
-      const isHit   = (hitYear === y);
-      const isGreen = !isHit && greenYearsSet.has(y);
-      const liClass = isHit ? 'complete-hit'
-                    : (isGreen ? 'complete-green' : 'complete-neutral');
-
-      const tooltipAttr = isHit
-        ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Año de referencia de la variable (${y})"`
-        : (isGreen
-            ? `data-bs-toggle="tooltip" data-bs-placement="top" title="Año en el que se capturó la variable"`
-            : `data-bs-toggle="tooltip" data-bs-placement="top" title="Año del periodo del proceso"`);
-
-      // Si es hit (amarillo), NO poner enlace jamás (regla global)
-      // Si no es hit y hay fuenteIden para ese año, envolver en <a>
-     // Permitir enlaces incluso en años hit (amarillo)
-      let yearHtml = `<span class="tl-year" ${tooltipAttr}>${y}</span>`;
-      if (enlacesPorAnio.has(y)) {
-        const url = enlacesPorAnio.get(y);
-        yearHtml = `<span class="tl-year" ${tooltipAttr}>${wrapYearWithLink(y, url)}</span>`;
-      }
-      return `
-        <li class="li ${liClass} d-flex flex-column align-items-center">
-          <div class="timestamp mb-2">
-            <span class="date mb-2">${yearHtml}</span>
-          </div>
-          <div class="status text-center"></div>
-        </li>
+      const badgesRelacionHTML = `
+        <span class="badge ${activeTab ? 'bg-success badge-tabulado' : 'bg-danger disabled'}" 
+              style="cursor:${activeTab ? 'pointer' : 'default'};${!activeTab ? 'pointer-events:none;' : ''}" 
+              data-idvar="${variable.idVar}" ${activeTab ? 'data-bs-toggle="modal" data-bs-target="#infoModal" data-type="tabulado"' : ''}>
+          ${activeTab ? 'Tabulados' : 'Sin Tabulados'}
+        </span>
+        <span class="badge ${activeMic ? 'bg-success badge-microdatos' : 'bg-danger disabled'}" 
+              style="cursor:${activeMic ? 'pointer' : 'default'};${!activeMic ? 'pointer-events:none;' : ''}" 
+              data-idvar="${variable.idVar}" ${activeMic ? 'data-bs-toggle="modal" data-bs-target="#infoModal" data-type="microdatos"' : ''}>
+          ${activeMic ? 'Microdatos' : 'Sin Microdatos'}
+        </span>
+        <span class="badge ${activeAbt ? 'bg-success badge-datosabiertos' : 'bg-danger disabled'}" 
+              style="cursor:${activeAbt ? 'pointer' : 'default'};${!activeAbt ? 'pointer-events:none;' : ''}" 
+              data-idvar="${variable.idVar}" ${activeAbt ? 'data-bs-toggle="modal" data-bs-target="#infoModal" data-type="datosabiertos"' : ''}>
+          ${activeAbt ? 'Datos Abiertos' : 'Sin Datos Abiertos'}
+        </span>
       `;
-    }).join('');
 
-    // Leyenda textual
-    const legend = `
-      <div class="timeline-legend mt-2 text-center small">
-        <div class="d-flex justify-content-center flex-wrap gap-4">
-          <div class="d-flex align-items-center gap-2">
-            <span class="legend-box legend-neutral"></span>
-            <span>Año del Proceso de Producción sin información disponible de la variable</span>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="legend-box legend-green"></span>
-            <span>Año del Proceso de Producción con información disponible de la variable</span>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="legend-box legend-yellow"></span>
-            <span>Año de la información presentada</span>
-          </div>
-        </div>
-      </div>
-    `;
-
-    return `<ul class="timeline" id="timeline">${items}</ul>${legend}`;
-  } catch (err) {
-    console.error('Error en construirLineaDeTiempoVariable:', err);
-    return construirLineaDeTiempo(eventosRelacionados);
-  }
-}
-
-
-// Devuelve un array de temáticas únicas (tema y tema2) de la "base" que le pases
-function collectTematicas(baseData) {
-  const set = new Set();
-  (baseData || []).forEach(v => {
-    if (v?.tema && String(v.tema).trim())  set.add(String(v.tema).trim());
-    if (v?.tema2 && String(v.tema2).trim()) set.add(String(v.tema2).trim());
-  });
-  // orden alfabético
-  return Array.from(set).sort((a,b) => a.localeCompare(b));
-}
-
-function matchesSearchTerm(v, needle) {
-  if (!needle) return true;
-  const n = needle.toLowerCase();
-
-  const f =
-    (v.categoria && v.categoria.toLowerCase().includes(n)) ||
-    (v.tema      && v.tema.toLowerCase().includes(n)) ||
-    (v.tema2     && v.tema2.toLowerCase().includes(n)) ||
-    (v.subtema   && v.subtema.toLowerCase().includes(n)) ||
-    (v.subtema2  && v.subtema2.toLowerCase().includes(n)) ||
-    (v.pregLit   && v.pregLit.toLowerCase().includes(n)) ||
-    (v.nomVar    && v.nomVar.toLowerCase().includes(n)) ||
-    (v.defVar    && v.defVar.toLowerCase().includes(n)) ||
-    (v.varAsig   && v.varAsig.toLowerCase().includes(n));
-
-  if (f) return true;
-
-  // Clasificaciones
-  const list = clasifIndex.get(String(v.id_a)) || [];
-  return list.some(c => (c || "").toLowerCase().includes(n));
-}
-
-
-function renderPage(data, page) {
-  container.innerHTML = "";
-  data = Array.isArray(data) ? data : [];
-  const total = data.length;
-
-  // Siempre actualizar contador (para que muestre 0 cuando corresponde)
-  updateVariableCounter(total);
-
-  // Si no hay elementos tras aplicar filtros/búsqueda -> mostrar mensaje amable
-  if (total === 0) {
-    paginationContainer.innerHTML = "";
-
-    // Si ya hay datos cargados en el sistema pero el filtrado devolvió 0,
-    // mostramos el mensaje específico solicitado.
-    if (Array.isArray(allData) && allData.length > 0) {
-      container.innerHTML = `<div class="alert alert-warning text-center">No se encontraron elementos relacionados con la busqueda</div>`;
-    } else {
-      // Si no existe ningún dato cargado (carga inicial vacía), mostrar card vacía con spinners
-      container.innerHTML = `
-        <div class="card shadow-sm border-0">
-          <div class="card-body text-center py-5">
-            <h5 class="card-title mb-2">Cargando...</h5>
-            <p class="card-text text-muted mb-4">Desplegando el listado de variables.</p>
-            <div class="d-flex justify-content-center gap-3">
-              <div class="spinner-grow text-secondary" role="status" style="width:1.25rem; height:1.25rem;">
-                <span class="visually-hidden">Cargando...</span>
-              </div>
-              <div class="spinner-grow text-secondary" role="status" style="width:1.25rem; height:1.25rem;">
-                <span class="visually-hidden">Cargando...</span>
-              </div>
-              <div class="spinner-grow text-secondary" role="status" style="width:1.25rem; height:1.25rem;">
-                <span class="visually-hidden">Cargando...</span>
-              </div>
-            </div>
-          </div>
-        </div>`;
-    }
-    return;
-  }
-
-  const startIndex = (page - 1) * itemsPerPage;
-  const paginatedData = data.slice(startIndex, startIndex + itemsPerPage);
-
-  updateVariableCounter(data.length);
-
-  paginatedData.forEach((variable, index) => {
-    // 2. Filtrar los eventos que pertenecen a esta variable
-      // ...dentro de renderPage, antes de construir card.innerHTML
-    // dentro de renderPage, por cada variable...
-    // Nueva presentación del periodo sin depender de la tabla eventos
-    let timelineHTML = "";
-    if (variable.vigInicial || variable.vigFinal) {
-      const anioInicio = variable.vigInicial || "?";
-      const anioFin = variable.vigFinal || "A la fecha";
-      
-      timelineHTML = `
-        <div class="mt-3 p-2 bg-light border rounded" style="display: inline-block;">
-          <small class="text-muted">
-            <i class="bi bi-calendar3 me-1"></i> 
-            <strong>Periodo de información disponible:</strong> ${anioInicio} - ${anioFin}
-          </small>
-        </div>
-      `;
-    }
-    // 3. Fuentes dinámicas
-
-    const proceso = procesosGlobal.find(proc => proc.acronimo);
-
-    // Badge de proceso: acrónimo si es económicas; idPp si es sociodemográficas
-    // dentro de renderPage, donde defines los badges:
-   // ya tienes esEco calculado arriba
-    const esEco = (getUnidadDeVariable(variable) === 'eco');
-    const esSocio = !esEco;
-
-    const badgeAbiertosHTML = (() => {
-      if (esSocio) {
-        // SOCIO: abre modal y la lógica del listener pintará "En proceso de captura"
-        return `
-          <span class="badge bg-secondary badge-datosabiertos"
-                style="cursor:pointer"
-                data-idvar="${variable.idVar}"
-                data-bs-toggle="modal"
-                data-bs-target="#infoModal">
-            Datos Abiertos
-          </span>`;
+      // 2. Lógica para "Alineación ODS" cruzando con la api precargada
+      let odsHTML = `<span class="badge bg-secondary disabled badge-ods" style="pointer-events:none;cursor:default;">Sin ODS</span>`;
+      if (variable.ods) {
+        const odsRecords = (window.odsGlobal || []).filter(o => String(o.idVar) === String(variable.idVar) || String(o.id_a) === String(variable.id_a));
+        const odsNums = [...new Set(odsRecords.map(o => o.ods || o.objetivo).filter(n => n != null))].sort((a,b)=>a-b);
+        
+        if (odsNums.length > 0) {
+           odsHTML = odsNums.map(n => `
+            <img src="/assets/ODS${String(n * 10).padStart(4, "0")}_es.jpg" 
+                 alt="ODS ${n}" class="ods-thumb badge-ods" 
+                 data-idvar="${variable.idVar}" data-ods="${n}" 
+                 data-type="ods" data-bs-toggle="modal" data-bs-target="#infoModal" 
+                 title="ODS ${n}">
+           `).join("");
+        }
       }
 
-      // ECO con datos embebidos
-      if (variable.relAbiertos === 'Sí' &&
-          Array.isArray(variable._datosAbiertosList) &&
-          variable._datosAbiertosList.length) {
-        return `
-          <span class="badge bg-success badge-datosabiertos"
-                style="cursor:pointer"
-                data-idvar="${variable.idVar}"
-                data-bs-toggle="modal"
-                data-bs-target="#infoModal">
-            Datos Abiertos
-          </span>`;
-      }
+      // 3. Lógica para "Alineación MDEA" cruzando con la api precargada
+      let mdeaHTML = `<span class="badge bg-secondary disabled badge-mdea" style="pointer-events:none;cursor:default;">Sin MDEA</span>`;
+      if (variable.mdea) {
+        const mdeaRecords = (window.mdeasGlobal || []).filter(m => String(m.idVar) === String(variable.idVar) || String(m.id_a) === String(variable.id_a));
+        const compNums = [...new Set(mdeaRecords.map(m => {
+             const val = m.componente ?? m.compo ?? m.componenteNombre ?? m.componenteId ?? m.componenteCodigo;
+             const match = String(val).match(/(\d{1,2})\b/);
+             return match ? parseInt(match[1], 10) : null;
+        }).filter(n => n != null))].sort((a,b)=>a-b);
 
-      // ECO sin datos: badge gris que NO abre modal
-      return `
-      <span class="badge bg-danger badge-datosabiertos disabled"
-            style="cursor:default; pointer-events:none;">
-        Sin Datos Abiertos
-      </span>`;
-    })();
-
-
-    const textoProc = esEco ? (proceso?.idPp || variable.idPp || '—') : (variable.idPp || '—');
-    const badgeProcHTML = textoProc
-      ? `<span class="badge ms-2 bg-secondary" title="${proceso?.pp || textoProc}">${textoProc}</span>`
-      : '';
-
-
-    const card = document.createElement('div');
-    card.classList.add('accordion', 'mb-3');
-
-    const term = currentSearchTerm; // 👈 usa el término global
-     const unit = getUnidadDeVariable(variable);              // 'eco' | 'socio'
-    const unitCls = (unit === 'eco') ? 'acc-eco' : 'acc-socio';
-
-
-
-    // Campos que quieres resaltar (usa el original si no hay término)
-    const hVarAsig  = variable.variable  ? highlightTerm(variable.variable,  term) : "";
-    const hPregLit  = variable.pregunta  ? highlightTerm(variable.pregunta,  term) : "";
-    const hDefVar   = variable.definicion   ? highlightTerm(variable.definicion,   term) : "";
-    const hNomVar   = variable.variable   ? highlightTerm(variable.variable,   term) : "";
-    const hCategoria= variable.tematica? highlightTerm(variable.tematica,term) : "";
-    const hTema     = variable.tema     ? highlightTerm(variable.tema,     term) : "";
-    const hSubtema  = variable.subtema  ? highlightTerm(variable.subtema,  term) : "";
-    const hTema2    = variable.tema2    ? highlightTerm(variable.tema2,    term) : "";
-    const hSubtema2 = variable.subtema2 ? highlightTerm(variable.subtema2, term) : "";
-
-// Dentro de tu renderPage, al construir la tarjeta (card):
-
-// 1. Mostrar el nuevo año de referencia (reemplazando al timeline/eventos)
-const periodoHTML = `
-  <div class="mt-2 text-muted" style="font-size: 0.85rem;">
-    <i class="bi bi-calendar3"></i> <strong>Año de Referencia:</strong> ${variable.anio_referencia}
-  </div>
-`;
-
-// 2. Mostrar badges basados en los booleanos de la BD
-// Construcción de Badges
-    let badgesHTML = "";
-
-    // Badge Gris: Muestra el Acrónimo o el ID de la variable en lugar del guion
-    const identificador = variable.acronimo || variable.idVar || "Sin ID";
-    badgesHTML += `<span class="badge bg-secondary me-1">${identificador}</span>`;
-
-    // Tema y Subtema (Opcional, si quieres que salgan en otro color)
-    if (variable.tema && variable.tema !== "-") {
-      badgesHTML += `<span class="badge bg-primary me-1">${variable.tema}</span>`;
-    }
-
-    // Badges booleanos (ODS, MDEA, etc.)
-    if (variable.ods) {
-      badgesHTML += `<span class="badge bg-success me-1" title="Objetivos de Desarrollo Sostenible">ODS</span>`;
-    }
-    if (variable.mdea) {
-      badgesHTML += `<span class="badge bg-info text-dark me-1" title="Medio Ambiente">MDEA</span>`;
-    }
-    if (variable.tabulados) {
-      badgesHTML += `<span class="badge bg-dark me-1">Tabulados</span>`;
-    }
-    if (variable.datosabiertos) {
-      badgesHTML += `<span class="badge bg-light text-dark border me-1">Datos Abiertos</span>`;
-    }
-    if (variable.microdatos && variable.microdatos.toLowerCase() !== "no") {
-      badgesHTML += `<span class="badge bg-warning text-dark me-1">Microdatos</span>`;
-    }
-
-// 3. Comentarios
-const comentariosHTML = variable.comentario 
-  ? `<div class="mt-2 text-secondary" style="font-size: 0.85rem;">
-       <strong>Comentario:</strong> ${variable.comentario}
-     </div>` 
-  : "";
-   
-            card.innerHTML = `
-            <div class="accordion-item shadow-sm rounded-3 border-0 ${unitCls}">
-              <h2 class="accordion-header custom-accordion-header" id="heading${index}">
-                <button class="accordion-button collapsed " type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#collapse${index}"
-                  aria-expanded="false"
-                  aria-controls="collapse${index}">
-                  <span class="var-nombre">${hVarAsig}</span>
-                  ${badgeProcHTML}
+        if (compNums.length > 0) {
+            mdeaHTML = compNums.map(n => `
+                <button type="button" class="btn mdea-chip mdea-chip--${n}" 
+                        data-idvar="${variable.idVar}" data-mdea-comp="${n}" 
+                        data-bs-toggle="modal" data-bs-target="#infoModal" 
+                        title="Componente ${n}">
+                  ${getMdeaComponentLabel(n)}
                 </button>
-              </h2>
-                <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}" data-bs-parent="#variablesContainer">
-                  <div class="accordion-body">
-                    <div class="mb-2">
-                      <div class="mb-2 text-dark fw-semibold" style="font-size:1rem;">Periodo de Pertinencia del Evento:</div>
-                      ${timelineHTML}
-                    </div>
-                    <div class="row g-3">
-                      <div class="col-md-6">
-                        <div class="mb-2">
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Pregunta utilizada para recolectar esta variable en el cuestionario">
-                            <i class="bi bi-question-circle me-1"></i>Pregunta:</span>
-                          <div class="ps-3">
-                            <p>${hPregLit}
-                          </div>
+            `).join("");
+        }
+      }
 
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Respuestas posibles de la pregunta de captación. Si la pregunta es abierta, este campo puede no aplicarse">
-                            <i class="bi bi-question-circle me-1"></i>Clasificación:</span>
-                          <div class="ps-3">
-                            ${getClasificacionesPorVariableHighlighted(variable.idVar || variable.id_a, term)} <!-- 👈 (ver paso 4) -->
-                          </div>
-                        </div>
-
-                        <div class="mb-2">
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Descripción detallada de la variable tal como aparece en la Fuente<sup>1</sup>">
-                            <i class="bi bi-info-circle me-1"></i>Definición:</span>
-                          <div class="ps-3">${hDefVar}</div> <!-- 👈 -->
-                        </div>
-
-                        <div class="mb-2">
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Denominación de la variable proporcionada por la Fuente<sup>1</sup>">
-                            <i class="bi bi-tag me-1"></i>Variable Fuente<sup>1</sup>:</span>
-                          <span class="text-dark ms-1 fw-normal">${hNomVar}</span> <!-- 👈 -->
-                        </div>
-                      <br>
-                      <br>
-                      <br>
-                      <br>
-                      <br>
-                      <br>
-                      <br>
-                        <p style="font-size: 9px;"> <sup>1</sup>Fuente:Origen de identificación de la variable proporcionada por:
-                      <br>
-                      la Iniciativa de Documentación de Datos(DDI), el Descriptor de archivos (FD), 
-                      <br>
-                      Cuestionario o Esquema conceptual.</p>
-                      </div>
-                      
-
-                      <div class="col-md-6">
-                        <div class="mb-2">
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Conjunto de personas, elemento o unidades que se estudian o cuantifican por la variable">
-                            <i class="bi bi-diagram-3 me-1"></i>Categoría:</span>
-                          <span class="text-dark ms-1 fw-normal">${hCategoria}</span> <!-- 👈 -->
-                        </div>
-
-                        <div class="mb-2">
-                          <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Tema al que se relaciona la variable">
-                            <i class="bi bi-layers me-1"></i>Temática:</span>
-                          <div class="ps-3">
-                            <span>Tema y Subtema 1:</span>
-                            <span class="text-dark mb-1 fw-normal">${hTema}</span> / 
-                            <span class="text-dark mb-1 fw-normal">${hSubtema}</span><br>
-                            <span>Tema y Subtema 2:</span>
-                            <span class="text-dark mb-1 fw-normal">${hTema2}</span> / 
-                            <span class="text-dark mb-1 fw-normal">${hSubtema2}</span>
-                          </div>
-                        </div>
-                          <div class="mb-2">
-                             <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left"
-                                   data-bs-title="Disponibilidad de los datos de la variable según los productos de información: tabulados, microdatos o datos abiertos">
-                               <i class="bi bi-link-45deg me-1"></i>Consulta de datos en:
-                             </span>
-                             <div class="ps-3 d-flex flex-wrap gap-2">
-                                <span class="badge bg-${variable.relTab === 'Sí' ? 'success badge-tabulado' : 'danger disabled'}"
-                                    style="
-                                        cursor:${variable.relTab === 'Sí' ? 'pointer' : 'default'};
-                                        ${variable.relTab !== 'Sí' ? 'pointer-events:none;' : ''}
-                                      "
-                                      data-idvar="${variable.idVar}"
-                                      ${variable.relTab === 'Sí'
-                                        ? 'data-bs-toggle="modal" data-bs-target="#infoModal" data-type="tabulado"'
-                                        : ''}>
-                                  ${variable.relTab === 'Sí' ? 'Tabulados' : 'Sin Tabulados'}
-                                </span>
-
-                                ${(() => {
-                                    const active = hasMicrodatos(variable);
-                                    return `
-                                      <span class="badge ${active ? 'bg-success badge-microdatos' : 'bg-danger disabled'}"
-                                            style="cursor:${active ? 'pointer' : 'default'};${!active ? 'pointer-events:none;' : ''}"
-                                            data-idvar="${variable.idVar}"
-                                            ${active ? 'data-bs-toggle="modal" data-bs-target="#infoModal" data-type="microdatos"' : ''}>
-                                        ${active ? 'Microdatos' : 'Sin Microdatos'}
-                                      </span>
-                                    `;
-                                  })()}
-                                ${badgeAbiertosHTML} <!-- 👈 NUEVO -->
-                             </div>
-
-                           <!-- 🔹 Bloque ODS -->
-                            <span class="fw-semibold text-secondary mt-2"
-                                  data-bs-toggle="tooltip" data-bs-placement="left"
-                                  data-bs-title="Objetivos del Desarrollo Sostenible (ODS) a los que contribuye la variable">
-                              <i class="bi bi-globe me-1"></i>Alineación con los ODS
-                            </span>
-                            <div class="ps-3 d-flex flex-wrap gap-2 ods-thumbs-wrap">
-                            ${
-                              (variable.alinOds !== 'Sí')
-                                ? `<span class="badge bg-secondary disabled badge-ods" style="pointer-events:none;cursor:default;">Sin ODS</span>`
-                                : (() => {
-                                    // Económicas con lista embebida:
-                                    if (Array.isArray(variable._odsList) && variable._odsList.length) {
-                                      const set = new Set(
-                                        variable._odsList
-                                          .map(o => getOdsObjectiveNumber(o?.objetivo))
-                                          .filter(n => n != null)
-                                      );
-                                      return set.size
-                                        ? buildOdsThumbsImgs(variable.idVar, [...set])
-                                        : `<span class="badge bg-secondary disabled badge-ods" style="pointer-events:none;cursor:default;">Sin ODS</span>`;
-                                    }
-                                    // Sociodemográficas (o casos sin _odsList): contenedor para carga perezosa
-                                    return `<div class="ods-thumbs" data-idvar="${variable.idVar}"></div>`;
-                                  })()
-                            }
-                          </div>
-
-                            <!-- 🔹 Bloque MDEA -->
-                              <span class="fw-semibold text-secondary"
-                                    data-bs-toggle="tooltip" data-bs-placement="left"
-                                    data-bs-title="Verifica el componente MDEA con el que se alinea la variable.">
-                                <i class="bi bi-diagram-3 me-1"></i>Alineación con el MDEA
-                              </span>
-                              <div class="ps-3 d-flex flex-wrap gap-2 mdea-chips-wrap">
-                                ${
-                                  (variable.alinMdea !== 'Sí')
-                                    ? `<span class="badge bg-secondary disabled badge-mdea" style="pointer-events:none;cursor:default;">Sin MDEA</span>`
-                                    : (() => {
-                                        // ECONÓMICAS con lista embebida
-                                        if (Array.isArray(variable._mdeasList) && variable._mdeasList.length) {
-                                         const comps = (variable._mdeasList || [])
-                                          .map(m => ({ num: getMdeaComponentNumber(m.componente) }))
-                                          .filter(x => x.num != null);
-                                        return buildMdeaChips(variable.idVar, comps);
-                                        }
-                                        // SOCIO u otros: contenedor para carga perezosa
-                                        return `<div class="mdea-chips" data-idvar="${variable.idVar}"></div>`;
-                                      })()
-                                }
-                              </div>
-
-                    </div>
+      const card = document.createElement('div');
+      card.classList.add('accordion', 'mb-3');
+      card.innerHTML = `
+        <div class="accordion-item shadow-sm rounded-3 border-0 ${unitCls}">
+          <h2 class="accordion-header custom-accordion-header" id="heading${index}">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+              <span class="var-nombre">${hVarAsig}</span>
+              ${badgeProcHTML}
+            </button>
+          </h2>
+          <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#variablesContainer">
+            <div class="accordion-body">
+              <div class="mb-2 text-muted" style="font-size: 0.85rem;">
+                <i class="bi bi-calendar3"></i> <strong>Año de Referencia:</strong> ${variable.anio_referencia}
+                <span class="badge bg-secondary ms-2">${variable.idVar}</span>
+              </div>
+              
+              <div class="row g-3 mt-1">
+                <div class="col-md-6">
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-question-circle me-1"></i>Pregunta:</span>
+                    <div class="ps-3"><p>${hPregLit}</p></div>
+                  </div>
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-list-check me-1"></i>Clasificación:</span>
+                    <div>${getClasificacionesPorVariableHighlighted(variable, term)}</div>
+                  </div>
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-info-circle me-1"></i>Definición:</span>
+                    <div class="ps-3">${hDefVar}</div>
+                  </div>
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-tag me-1"></i>Variable Fuente:</span>
+                    <span class="text-dark ms-1 fw-normal">${hNomVar}</span>
+                  </div>
                 </div>
+                
+                <div class="col-md-6">
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-diagram-3 me-1"></i>Categoría:</span>
+                    <span class="text-dark ms-1 fw-normal">${huniverso}</span>
+                  </div>
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary"><i class="bi bi-layers me-1"></i>Temática:</span>
+                    <div class="ps-3">
+                      <span>Principal:</span> <span class="text-dark fw-normal">${hTema} / ${hSubtema}</span><br>
+                      ${variable.tema2 ? `<span>Secundaria:</span> <span class="text-dark fw-normal">${hTema2} / ${hSubtema2}</span>` : ""}
+                    </div>
+                  </div>
+                  
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary">
+                      <i class="bi bi-link-45deg me-1"></i>Consulta de datos en:
+                    </span>
+                    <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
+                      ${badgesRelacionHTML}
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary mt-2">
+                      <i class="bi bi-globe me-1"></i>Alineación con los ODS:
+                    </span>
+                    <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
+                      ${odsHTML}
+                    </div>
+                  </div>
+
+                  <div class="mb-2">
+                    <span class="fw-semibold text-secondary">
+                      <i class="bi bi-tree me-1"></i>Alineación con el MDEA:
+                    </span>
+                    <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
+                      ${mdeaHTML}
+                    </div>
+                  </div>
+
+                  ${variable.comentario ? `<div class="mb-2"><span class="fw-semibold text-secondary"><i class="bi bi-chat-left-text me-1"></i>Comentario:</span><div class="ps-3 text-dark">${variable.comentario}</div></div>` : ""}
+                </div>
+              </div>
             </div>
+          </div>
         </div>
-    </div>`;
+      `;
+      container.appendChild(card);
+    });
+  }
+  // ==========================================
+  // PAGINACIÓN
+  // ==========================================
+  function setupPagination(data) {
+    if (!paginationContainer) return;
+    paginationContainer.innerHTML = "";
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+    if (totalPages <= 1) return;
 
-    container.appendChild(card);
-
-  // === Inicializar tooltips (robusto, compatible con <sup>) ===
-const tooltips = card.querySelectorAll('[data-bs-toggle="tooltip"]');
-if (tooltips.length) {
-  const initTooltips = () => {
-    try {
-      // Detectar versión de Bootstrap
-      const bsVersion = bootstrap?.Tooltip?.VERSION || '5.x';
-
-      // --- Caso Bootstrap 5.0 a 5.2 ---
-      if (parseFloat(bsVersion) < 5.3) {
-        const allowListWithSup = {
-          ...bootstrap.Tooltip.Default.allowList,
-          sup: [] // permitir <sup> sin atributos
-        };
-
-        const cfg = {
-          html: true,
-          sanitize: true,
-          allowList: allowListWithSup,
-          container: 'body'
-        };
-
-        tooltips.forEach(el => new bootstrap.Tooltip(el, cfg));
-      }
-
-      // --- Caso Bootstrap 5.3 o superior ---
-      else {
-        // Usa DOMPurify si está disponible (recomendado)
-        const sanitizeFn = (content) =>
-          window.DOMPurify
-            ? DOMPurify.sanitize(content, { ALLOWED_TAGS: ['b', 'i', 'u', 'em', 'strong', 'sup', 'sub', 'span'] })
-            : content;
-
-        const cfg = {
-          html: true,
-          sanitizeFn,
-          container: 'body'
-        };
-
-        tooltips.forEach(el => new bootstrap.Tooltip(el, cfg));
-      }
-
-    } catch (err) {
-      console.warn('Error inicializando tooltips con HTML, intentando fallback:', err);
-      // Fallback sin HTML
-      try {
-        tooltips.forEach(el => new bootstrap.Tooltip(el));
-      } catch (e) {
-        console.error('Error en fallback de tooltips:', e);
-      }
-    }
-  };
-
-  // Ejecutar inicialización
-  initTooltips();
-}
-
-    // Inicializar de MDEA perezoso
-    // Carga perezosa de chips MDEA cuando no vienen embebidos
-      let __mdeaCache__ = null;
-      async function fetchMdeaOnce() {
-        if (__mdeaCache__ != null) return __mdeaCache__;
-        const res = await fetch('/api/mdea');
-        const data = await res.json();
-        // el endpoint a veces regresa 1 registro o arreglo
-        __mdeaCache__ = Array.isArray(data) ? data : (data ? [data] : []);
-        return __mdeaCache__;
-      }
-
-      const lazyMdea = card.querySelectorAll('.mdea-chips');
-      lazyMdea.forEach(async (box) => {
-        const idVar = box.getAttribute('data-idvar');
-        const paintEmpty = () => {
-          box.outerHTML = `<span class="badge bg-secondary disabled badge-mdea"
-                                style="pointer-events:none;cursor:default;">Sin MDEA</span>`;
-        };
-        try {
-          const all = await fetchMdeaOnce();
-          // para socio, muchas veces hay UN registro por variable
-          const registros = all.filter(r => String(r.idVar) === String(idVar));
-          if (!registros.length) return paintEmpty();
-
-          // Construye lista de componentes detectados
-          const comps = [];
-            registros.forEach(r => {
-              const num = getMdeaComponentNumber(r.componente ?? r.compo ?? r.componenteNombre ?? r.componenteId ?? r.componenteCodigo);
-              if (num != null) comps.push({ num });
-            });
-            box.outerHTML = `<div class="d-flex flex-wrap gap-2">
-              ${buildMdeaChips(idVar, comps)}
-            </div>`;
-        } catch (err) {
-          console.error('MDEA lazy error:', err);
-          paintEmpty();
-        }
-      });
-
-
-    // Cargar thumbs ODS por variable (sólo cuando no vienen embebidos)
-   // Poblar thumbnails ODS cuando no vienen embebidos (socio, etc.)
-            const lazyThumbs = card.querySelectorAll('.ods-thumbs');
-      lazyThumbs.forEach(async (box) => {
-        const idVar = box.getAttribute('data-idvar');
-
-        // Helper para pintar “Sin ODS”
-        const paintEmpty = () => {
-          box.outerHTML = `<span class="badge bg-secondary disabled badge-ods"
-                                style="pointer-events:none;cursor:default;">Sin ODS</span>`;
-        };
-
-        try {
-          const all = await fetchOdsOnce(); // usa caché
-          // Filtra registros de esta variable (acepta objeto único o array)
-          const registros = all.filter(ods => String(ods.idVar) === String(idVar));
-
-          if (!registros.length) return paintEmpty();
-
-          // Extrae objetivo 1..17 desde campos 'ods' o 'objetivo'
-          const set = new Set(
-            registros
-              .map(o => getOdsObjectiveNumber(o?.ods ?? o?.objetivo))
-              .filter(n => n != null)
-          );
-
-          if (set.size === 0) return paintEmpty();
-
-          // Ordena ascendente y pinta
-          const ordered = [...set].sort((a, b) => a - b);
-
-          box.outerHTML = `<div class="d-flex flex-wrap gap-2">
-            ${buildOdsThumbsImgs(idVar, ordered)}
-          </div>`;
-        } catch (err) {
-          console.error('ODS lazy error:', err);
-          paintEmpty();
-        }
-      });
-  });
-}
-
-    
-
-
-    // Función para configurar el paginador
-      function setupPagination(data) {
-      paginationContainer.innerHTML = "";
-      const totalPages = Math.ceil(data.length / itemsPerPage);
-      const maxVisiblePages = 5;
-
-      if (totalPages <= 1) return; // nada que paginar
-
-      // === Botón "Primera página" (solo si ya avanzaste) ===
-      if (currentPage > 1) {
-        const firstLi = document.createElement("li");
-        firstLi.classList.add("page-item");
-        const firstA = document.createElement("a");
-        firstA.classList.add("page-link");
-        firstA.href = "#";
-        firstA.textContent = "Primera página";
-        firstA.style.backgroundColor = "#003057";
-        firstA.style.color = "#fff";
-        firstA.addEventListener("click", function (e) {
-          e.preventDefault();
-          currentPage = 1;
-          renderPage(data, currentPage);
-          setupPagination(data);
-        });
-        firstLi.appendChild(firstA);
-        paginationContainer.appendChild(firstLi);
-      }
-
-      // Botón "Anterior"
-      if (currentPage > 1) {
-        const prevLi = document.createElement("li");
-        prevLi.classList.add("page-item");
-        const prevA = document.createElement("a");
-        prevA.classList.add("page-link");
-        prevA.href = "#";
-        prevA.textContent = "«";
-        prevA.addEventListener("click", function (e) {
-          e.preventDefault();
-          currentPage--;
-          renderPage(data, currentPage);
-          setupPagination(data);
-        });
-        prevLi.appendChild(prevA);
-        paginationContainer.appendChild(prevLi);
-      }
-
-      // Rango de páginas visibles
-      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-      if (endPage - startPage < maxVisiblePages - 1) {
-        startPage = Math.max(1, endPage - maxVisiblePages + 1);
-      }
-
-      // "..." al inicio
-      if (startPage > 1) {
-        const dotsLi = document.createElement("li");
-        dotsLi.classList.add("page-item", "disabled");
-        const dotsA = document.createElement("a");
-        dotsA.classList.add("page-link");
-        dotsA.href = "#";
-        dotsA.textContent = "...";
-        dotsA.style.backgroundColor = "#003057";
-        dotsA.style.color = "#fff";
-        dotsLi.appendChild(dotsA);
-        paginationContainer.appendChild(dotsLi);
-      }
-
-      // Números
-      for (let i = startPage; i <= endPage; i++) {
-        const li = document.createElement("li");
-        li.classList.add("page-item");
-        if (i === currentPage) li.classList.add("active");
-
-        const a = document.createElement("a");
-        a.classList.add("page-link");
-        a.href = "#";
-        a.textContent = i;
+    const createLi = (text, targetPage, disabled = false, active = false) => {
+      const li = document.createElement("li");
+      li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+      const a = document.createElement("a");
+      a.className = "page-link";
+      a.href = "#";
+      a.textContent = text;
+      if (!disabled && !active) {
         a.style.backgroundColor = "#003057";
         a.style.color = "#fff";
-        a.addEventListener("click", function (e) {
+        a.addEventListener("click", (e) => {
           e.preventDefault();
-          currentPage = i;
+          currentPage = targetPage;
           renderPage(data, currentPage);
           setupPagination(data);
         });
-
-        li.appendChild(a);
-        paginationContainer.appendChild(li);
       }
+      li.appendChild(a);
+      return li;
+    };
 
-      // "..." al final
-      if (endPage < totalPages) {
-        const dotsLi = document.createElement("li");
-        dotsLi.classList.add("page-item", "disabled");
-        const dotsA = document.createElement("a");
-        dotsA.classList.add("page-link");
-        dotsA.href = "#";
-        dotsA.textContent = "...";
-        dotsA.style.backgroundColor = "#003057";
-        dotsA.style.color = "#fff";
-        dotsLi.appendChild(dotsA);
-        paginationContainer.appendChild(dotsLi);
-      }
+    if (currentPage > 1) paginationContainer.appendChild(createLi("«", currentPage - 1));
 
-      // Botón "Siguiente"
-      if (currentPage < totalPages) {
-        const nextLi = document.createElement("li");
-        nextLi.classList.add("page-item");
-        const nextA = document.createElement("a");
-        nextA.classList.add("page-link");
-        nextA.href = "#";
-        nextA.textContent = "»";
-        nextA.addEventListener("click", function (e) {
-          e.preventDefault();
-          currentPage++;
-          renderPage(data, currentPage);
-          setupPagination(data);
-        });
-        nextLi.appendChild(nextA);
-        paginationContainer.appendChild(nextLi);
-      }
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + 4);
+    if (end - start < 4) start = Math.max(1, end - 4);
 
-      // Botón "Última Página"
-      if (totalPages > 1 && currentPage < totalPages) {
-        const lastLi = document.createElement("li");
-        lastLi.classList.add("page-item");
-        const lastA = document.createElement("a");
-        lastA.classList.add("page-link");
-        lastA.href = "#";
-        lastA.textContent = "Última Página";
-        lastA.style.backgroundColor = "#003057";
-        lastA.style.color = "#fff";
-        lastA.addEventListener("click", function (e) {
-          e.preventDefault();
-          currentPage = totalPages;
-          renderPage(data, currentPage);
-          setupPagination(data);
-        });
-        lastLi.appendChild(lastA);
-        paginationContainer.appendChild(lastLi);
-      }
+    for (let i = start; i <= end; i++) {
+      paginationContainer.appendChild(createLi(i, i, false, i === currentPage));
     }
 
-
-    // Manejar el evento de cambio en el selector de elementos por página
-    itemsPerPageSelect.addEventListener("change", function () {
-      itemsPerPage = parseInt(this.value, 10);
-      currentPage = 1;
-      const base = (currentFilteredData && currentFilteredData.length) ? currentFilteredData : filterByUnidad(allData);
-      renderPage(base, currentPage);
-      setupPagination(base);
-    });
-
-
-    // Manejar el evento de envío del formulario
-      //  ÚNICO submit del formulario de búsqueda, con guard anti-duplicado
-    searchForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      const term = (searchInput.value || "").trim();
-
-      // Si no cambió el término, no hacemos nada
-      if (term === lastSubmittedTerm) return;
-
-      lastSubmittedTerm = term;
-      currentSearchTerm = term;   // término activo usado por applyFilters() y highlight
-      currentPage = 1;
-
-       const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática") ? temaSelect.value : "";
-    filtrarProcessSelectPorTema(temaActual);
-
-      applyFilters();             // filtra y actualiza contador de forma consistente
-    });
-
-    //Listener para los periodo de tiempo. 
-    document.getElementById("periodInic").addEventListener("change", filterByRelation);
-    document.getElementById("periodFin").addEventListener("change", filterByRelation);
-    
-    window.addEventListener("DOMContentLoaded", () => {
-    populatePeriodFilters(); // Cargar filtros
-    filterByRelation();      // Mostrar todo inicialmente
-    });
-
-    // Cargar todos los elementos al entrar a la página
-  
-
-    //Filtrado de ordemaniento de la A-Z 
-        // Función para ordenar variables alfabéticamente
-        sortSelect.addEventListener("change", function () {
-        const sortOption = this.value;
-
-        if (!sortOption) {
-            // Si no se selecciona opción, mostrar sin ordenar
-            renderPage(currentFilteredData, currentPage);
-            setupPagination(currentFilteredData);
-            return;
-        }
-
-        const sortedData = [...currentFilteredData].sort((a, b) => {
-            const nameA = a.varAsig.toLowerCase();
-            const nameB = b.varAsig.toLowerCase();
-
-            if (sortOption === "az") {
-                return nameA.localeCompare(nameB);
-            } else if (sortOption === "za") {
-                return nameB.localeCompare(nameA);
-            }
-            return 0;
-        });
-
-        currentPage = 1;
-        currentFilteredData = sortedData;
-        renderPage(currentFilteredData, currentPage);
-        setupPagination(currentFilteredData);
-    });
-    
-    // Función para aplicar todos los filtros activos
-  function applyFilters() {
-    // 1) Base por unidad
-  let filteredData = filterByUnidad(allData);
-
-  // 2) Temática
-  const selectedTema = temaSelect.value;
-  if (selectedTema && selectedTema !== "Seleccione una temática") {
-    filteredData = filteredData.filter(v =>
-      (v.tema   && v.tema   === selectedTema) ||
-      (v.tema2  && v.tema2  === selectedTema)
-    );
+    if (currentPage < totalPages) paginationContainer.appendChild(createLi("»", currentPage + 1));
   }
 
-  // 3) Procesos (intersección con lo anterior, no lo sobreescribe)
-  const selectedProcesses = Array.from(processSelect.selectedOptions).map(o => o.value);
-  if (selectedProcesses.length > 0) {
-    filteredData = filteredData.filter(v => selectedProcesses.includes(v.idPp));
-  }
-  // 4) Checkboxes
-  if (relTabCheckbox.checked || relMicroCheckbox.checked || chkRelAbiertos.checked) {
-    filteredData = filteredData.filter(v => {
-      const okTab     = relTabCheckbox.checked   ? v.relTab === "Sí" : true;
-      const okMicro   = relMicroCheckbox.checked ? hasMicrodatos(v)  : true;
-      const okAbiertos= chkRelAbiertos.checked   ? hasDatosAbiertos(v) : true;
-      return okTab && okMicro && okAbiertos;
-    });
-  }
-  if (alinMdeaCheckbox.checked || alinOdsCheckbox.checked) {
-    filteredData = filteredData.filter(v => {
-      const okMdea = alinMdeaCheckbox.checked ? v.alinMdea === "Sí" : true;
-      const okOds  = alinOdsCheckbox.checked  ? v.alinOds  === "Sí" : true;
-      return okMdea && okOds;
-    });
-  }
-
-  // 5) Búsqueda
-
- // 5) Búsqueda (incluye clasificaciones)
-currentSearchTerm = (searchInput.value || "").trim();        // 👈 sincroniza el término activo
-const needle = currentSearchTerm.toLowerCase();
-
-if (needle) {
-  filteredData = filteredData.filter(v => {
-    // match en los campos de la variable
-    const f =
-      (v.categoria && v.categoria.toLowerCase().includes(needle)) ||
-      (v.tema      && v.tema.toLowerCase().includes(needle)) ||
-      (v.tema2     && v.tema2.toLowerCase().includes(needle)) ||
-      (v.subtema   && v.subtema.toLowerCase().includes(needle)) ||
-      (v.subtema2  && v.subtema2.toLowerCase().includes(needle)) ||
-      (v.pregLit   && v.pregLit.toLowerCase().includes(needle)) ||
-      (v.nomVar    && v.nomVar.toLowerCase().includes(needle)) ||
-      (v.defVar    && v.defVar.toLowerCase().includes(needle)) ||
-      (v.varAsig   && v.varAsig.toLowerCase().includes(needle));
-
-    if (f) return true;
-
-    // match en CLASIFICACIONES de esa variable
-    const list = clasifIndex.get(String(v.idVar)) || [];
-    return list.some(c => (c || "").toLowerCase().includes(needle));
-  });
-}
-
-  // Ordena A-Z antes de mostrar
-  filteredData = sortVariablesAZ(filteredData);
-
-  currentFilteredData = filteredData;
-  currentPage = 1;
-  renderPage(currentFilteredData, currentPage);
-  setupPagination(currentFilteredData);
-  updateVariableCounter(filteredData.length);
-}
-
-
-
-
-temaSelect.addEventListener("change", function () {
-  const temaActual = (temaSelect.value && temaSelect.value !== "Seleccione una temática")
-    ? temaSelect.value
-    : "";
-
-  // Rehacer las opciones del select de procesos según UNIDAD + TEMÁTICA
-  filtrarProcessSelectPorTema(temaActual);
-
-  // Mantener visible la sección (si aplica)
-  checkMostrarUnidadSection();
-
-  // Delegar en la función central
-  applyFilters();
-});
-
-relTabCheckbox.addEventListener("change", applyFilters);
-relMicroCheckbox.addEventListener("change", applyFilters);
-chkRelAbiertos.addEventListener("change", applyFilters);
-alinMdeaCheckbox.addEventListener("change", applyFilters);
-alinOdsCheckbox.addEventListener("change", applyFilters);
-document.getElementById("periodInic").addEventListener("change", applyFilters);
-document.getElementById("periodFin").addEventListener("change", applyFilters);
-searchForm.addEventListener("submit", function (e) {
-  e.preventDefault();
-  currentSearchTerm = (searchInput.value || "").trim(); // sincroniza
-  currentPage = 1;
-  applyFilters(); // ya filtra campos + clasificaciones y hace render
-});
-
-    // Función para obtener parámetros de la URL
-   function getQueryParam(param) {
+  // ==========================================
+  // URL FILTERS / LOADERS / INIT
+  // ==========================================
+  let filtroURLAplicado = false;
+  function aplicarFiltroDesdeURL() {
+    if (filtroURLAplicado) return;
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(param);
+    const searchParam = urlParams.get("search");
+
+    if (searchParam && searchInput) {
+      searchInput.value = searchParam;
+      currentSearchTerm = searchParam;
+      applyFilters();
     }
-
-    // Cuando cargue la página, buscar si hay un parámetro "search"
-   document.addEventListener("DOMContentLoaded", () => {
-    const searchTerm = getQueryParam("search");
-
-    if (searchTerm) {
-        const checkDataLoaded = setInterval(() => {
-        if (typeof allData !== 'undefined' && allData.length > 0) {
-            clearInterval(checkDataLoaded);
-            searchInput.value = searchTerm;
-            currentSearchTerm = searchTerm;
-            currentPage = 1;
-            searchVariables(searchTerm);
-        }
-        }, 100);
-    }
-    });
-
-    // funcion para obtener el valor de una variable CSS
-function getCssVar(name) {
-  return getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-}
-
-// ==========================================
-// HELPERS PARA HEADER DEL MODAL (ODS)
-// ==========================================
-
-// Mapa de colores por ODS (ajusta si ya lo tienes)
-const ODS_COLORS = {
-  "1":  "#e5243b",
-  "2":  "#dda63a",
-  "3":  "#4c9f38",
-  "4":  "#c5192d",
-  "5":  "#ff3a21",
-  "6":  "#26bde2",
-  "7":  "#fcc30b",
-  "8":  "#a21942",
-  "9":  "#fd6925",
-  "10": "#dd1367",
-  "11": "#fd9d24",
-  "12": "#bf8b2e",
-  "13": "#3f7e44",
-  "14": "#0a97d9",
-  "15": "#56c02b",
-  "16": "#00689d",
-  "17": "#19486a"
-};
-
-// Limpia el header del modal (modo "normal")
-function resetModalHeaderColor() {
-  const modal  = document.getElementById("infoModal");
-  if (!modal) return;
-
-  modal.classList.remove("ods-active");
-
-  const header = modal.querySelector(".modal-header");
-  if (!header) return;
-
-  header.style.backgroundColor = "";
-  header.style.color = "";
-}
-
-// Aplica color de ODS al header
-function setOdsModalHeaderColor(odsNumber) {
-  const modal  = document.getElementById("infoModal");
-  if (!modal) return;
-
-  const header = modal.querySelector(".modal-header");
-  if (!header) return;
-
-  const color = ODS_COLORS[String(odsNumber)] || "";
-  if (!color) return;
-
-  modal.classList.add("ods-active");
-  header.style.backgroundColor = color;
-  header.style.color = "#ffffff";
-}
-
-// Resetea siempre que se cierre el modal
-document.addEventListener("DOMContentLoaded", () => {
-  const modal = document.getElementById("infoModal");
-  if (!modal) return;
-
-  modal.addEventListener("hidden.bs.modal", () => {
-    resetModalHeaderColor();
-  });
-});
-
-// ==========================================
-// HELPERS PARA INDICADOR ODS
-// ==========================================
-
-// true si el campo de indicador trae algo válido
-function hasValidIndicador(ind) {
-  if (ind === undefined || ind === null) return false;
-  const v = String(ind).trim();
-  if (!v || v === "-" || v.toLowerCase() === "null") return false;
-  return true;
-}
-
-function cleanOdsTitleName(raw) {
-  if (!raw) return "";
-
-  return String(raw)
-    .replace(/_\d+$/, "")   // ❗ borra solo los números del final
-    .replace(/_/g, " ")     // ❗ convierte guiones bajos a espacios
-    .trim();
-}
-
-// Obtiene id_meta tipo '4' a partir del código meta (14, 1.4, etc.)
-function getMetaIdFromCode(metaRaw) {
-  if (metaRaw === null || metaRaw === undefined) return null;
-  const clean = cleanUnderscores(String(metaRaw))
-    .replace(/[^\d.]/g, "");  // solo dígitos y puntos
-
-  if (!clean) return null;
-
-  const parts = clean.split(".").filter(Boolean);
-  if (parts.length >= 2) {
-    // 1.4 -> meta "4"
-    return parts[1];
-  }
-  // Si viene como "14" nos quedamos con el último dígito -> "4"
-  if (clean.length >= 2) return clean.slice(-1);
-  return clean;
-}
-
-// Obtiene id_indicador tipo '1' a partir del código (1.4.1, 141, etc.)
-function getIndicadorIdFromCode(indRaw) {
-  if (indRaw === null || indRaw === undefined) return null;
-  const clean = cleanUnderscores(String(indRaw))
-    .replace(/[^\d.]/g, "");
-
-  if (!clean) return null;
-
-  const parts = clean.split(".").filter(Boolean);
-  if (parts.length >= 1) {
-    // 1.4.1 -> "1" (último segmento)
-    return parts[parts.length - 1];
-  }
-  // 141 -> "1" (último dígito)
-  return clean.slice(-1);
-}
-
-// Busca name_indicador en el catálogo /api/ods_indicadores
-function getIndicadorNameFromCatalog(odsNumber, metaRaw, indicadorRaw, catalog) {
-  if (!Array.isArray(catalog) || !catalog.length) return "";
-
-  // Normalizamos el código del indicador: "Indicador_1.4.1" -> "1.4.1"
-  const indCodeClean = cleanUnderscores(formatOdsComposite(indicadorRaw || ""));
-  const match = indCodeClean.match(/(\d+)\.(\w+)\.(\d+)/); // obj.meta.ind
-  if (!match) return "";
-
-  const [, objStr, metaStr, indStr] = match;
-  const obj   = Number(objStr);
-  const meta  = String(metaStr);
-  const indId = Number(indStr);
-
-  // Si por alguna razón obj no viene, usamos el odsNumber detectado
-  const targetObj = odsNumber || obj;
-
-  const found = catalog.find(c =>
-    Number(c.id_objetivo) === targetObj &&
-    String(c.id_meta)     === meta &&
-    Number(c.id_indicador) === indId
-  );
-
-  return found ? found.name_indicador : "";
-}
-
-/**
- * Busca el texto de la meta en /api/meta_ods
- * meta_ods: [{ id_objetivo, id_meta, name_meta }, ...]
- * metaRaw viene como "Meta_11.b" ⇒ queremos objetivo 11, meta "b"
- */
-function getMetaNameFromCatalog(odsNumber, metaRaw, catalogMeta) {
-  if (!Array.isArray(catalogMeta) || !catalogMeta.length) return "";
-
-  // Normalizamos: "Meta_11.b" -> "Meta 11.b" -> "11.b"
-  const metaClean = cleanUnderscores(formatOdsComposite(metaRaw || ""));
-  const normalized = metaClean.replace(/^Meta\s*/i, "").trim(); // "11.b" o "1.4"
-
-  const match = normalized.match(/^(\d+)\.(\w+)/);
-  if (!match) return "";
-
-  // En tu catálogo, id_meta es "b" o "4"
-  const metaId = match[2];
-
-  const found = catalogMeta.find(m =>
-    Number(m.id_objetivo) === Number(odsNumber) &&
-    String(m.id_meta)     === String(metaId)
-  );
-
-  return found ? found.name_meta : "";
-}
-
-// Siempre que se cierre completamente el modal, resetea
-document.getElementById("infoModal").addEventListener("hidden.bs.modal", () => {
-  resetModalHeaderColor();
-});
-
-function safeField(str) {
-  if (!str) return "";
-  const s = String(str).trim();
-  if (s === "-" || s.toLowerCase() === "null" || s === "") return "";
-  return s;
-}
-
-// Helper para inicializar tooltips dentro del modal
-function initTooltipsInModal() {
-  const modal = document.getElementById('infoModal');
-  if (!modal || typeof bootstrap === 'undefined') return;
-
-  const tooltipTriggerList = [].slice.call(
-    modal.querySelectorAll('[data-bs-toggle="tooltip"]')
-  );
-
-  tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
-}
-
-
-// Evento delegado para mostrar información de tabulados y microdatos en el modal
-document.addEventListener("click", async function (e) {
-  // Helper global
-  function getVariableByIdVar(idVar) {
-    return (Array.isArray(allData) ? allData : []).find(v => String(v.idVar) === String(idVar));
+    filtroURLAplicado = true;
   }
 
-  // ============ TABULADOS ============
-  const tabTrigger = e.target.closest(".badge-tabulado");
-  if (tabTrigger) {
-    resetModalHeaderColor();   // <- siempre que NO sea ODS
-
-    document.getElementById("infoModalLabel").textContent = "Tabulado(s)";
-    const idVar    = tabTrigger.getAttribute("data-idvar");
-    const modalBody = document.getElementById("infoModalBody");
-    modalBody.innerHTML = "<div class='text-center'>Cargando...</div>";
-
-  const isExcelLike = v =>
-    typeof v === "string" && (v.toLowerCase().includes("xls") || v.toLowerCase().includes("xlsx"));
-
-  const isInteractivo = v =>
-    typeof v === "string" && v.toLowerCase().includes("interactivo");
-
-  const isVistaWeb = v =>
-    typeof v === "string" && v.toLowerCase().includes("vista web");
-
-  try {
-    const variable = getVariableByIdVar(idVar);
-
-    // Caso 1: Económicas con tabulados embebidos en la variable
-    if (variable && variable._source === "economicas-ultima" &&
-        Array.isArray(variable._tabuladosList) && variable._tabuladosList.length) {
-
-        const html = variable._tabuladosList.map(t => {
-        const tipo = t.tipo || "";
-        const excel = isExcelLike(tipo);
-        const inter = isInteractivo(tipo);
-        const vistaWeb = isVistaWeb(tipo);
-
-        const metaLinea =
-          (t.hoja ? `<span class="tabulado-info text-end"
-                    data-bs-toggle="tooltip"
-                    data-bs-placement="bottom"
-                    data-bs-container="#infoModal"
-                    title="Nombre de la hoja donde se encuentra el tabulado"><i class="bi bi-file-spreadsheet"></i> ${t.hoja}</span>` : "") +
-          (!t.hoja && t.numTab ? `<span class="tabulado-info text-end"
-                    data-bs-toggle="tooltip"
-                    data-bs-placement="bottom"
-                    data-bs-container="#infoModal"
-                    title="Nombre de la hoja donde se encuentra el tabulado"><i class="bi bi-file-spreadsheet"></i> ${t.numTab}</span>` : "");
-
-        const botonDerecha = t.urlDescarga ? `
-          <a href="${t.urlDescarga}" target="_blank"
-            class="btn-download ${excel ? "btn-excel" : inter ? "btn-interactivo" : "btn-download-default"}">
-            ${excel ? `<i class="bi bi-filetype-xlsx me-1"></i> EXCEL`
-                    : inter ? `<i class="bi bi-bar-chart-line me-1"></i> Interactivo`
-                            : `<i class="bi bi-download me-1"></i> Descargar`}
-          </a>` : "";
-
-        const botonVistaWebIzq = (vistaWeb && t.urlAcceso)
-          ? `<a href="${t.urlAcceso}" target="_blank" class="btn-web">
-              <i class="bi bi-globe2 me-1"></i> Vista web
-            </a>`
-          : "";
-
-        const botonAccesoInegiIzq = t.urlAcceso ? `
-          <a href="${t.urlAcceso}" target="_blank" class="btn-link-inegi">
-            <i class="bi bi-link-45deg me-1"></i> Ver en INEGI
-          </a>` : "";
-
-        return `
-          <div class="tabulado-card">
-            <div class="tabulado-title">${t.tabulado || "Tabulado"}</div>
-
-            <div class="tabulado-actions">
-              <div class="ta-left">
-                ${botonAccesoInegiIzq}
-                ${botonVistaWebIzq}
-              </div>
-              <div class="ta-right">
-                <div class="ta-right-buttons">
-                  ${botonDerecha}
-                </div>
-                <div >
-                  ${metaLinea}
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      modalBody.innerHTML = html || "<div class='text-danger'>No hay tabulados disponibles.</div>";
-      initTooltipsInModal();
-      return;
-    }
-
-    // Caso 2: Fallback a endpoints locales
-    const resVarTab = await fetch('/api/var-tab');
-    const dataVarTab = await resVarTab.json();
-    const relaciones = Array.isArray(dataVarTab) ? dataVarTab.filter(rel => rel.idVar === idVar) : [];
-
-    if (!relaciones.length) {
-      modalBody.innerHTML = "<div class='text-danger'>No hay tabulados relacionados con esta variable.</div>";
-      return;
-    }
-
-    const resTabulados = await fetch('/api/tabulado');
-    const tabulados = await resTabulados.json();
-
-    const contenido = relaciones.map(rel => {
-      const tabulado = Array.isArray(tabulados) ? tabulados.find(tab => tab.idTab === rel.idTab) : null;
-      if (!tabulado) return "";
-
-      const tipo = tabulado.tipoTab || "";
-      const excel = isExcelLike(tipo);
-      const inter = isInteractivo(tipo);
-      const vistaWeb = isVistaWeb(tipo);
-
-      // Meta: si existe 'hoja' úsala; si no, usa número
-      const metaLinea =
-        (tabulado.hoja ? `<span class="tabulado-info text-end"
-                  data-bs-toggle="tooltip"
-                  data-bs-placement="bottom"
-                  data-bs-container="#infoModal"
-                  title="Nombre de la hoja donde se encuentra el tabulado"><i class="bi bi-file-spreadsheet"></i>  ${tabulado.hoja}</span>` : "") +
-        (!tabulado.hoja && tabulado.numTab ? `<span class="tabulado-info text-end"
-                  data-bs-toggle="tooltip"
-                  data-bs-placement="bottom"
-                  data-bs-container="#infoModal"
-                  title="Nombre de la hoja donde se encuentra el tabulado"><i class="bi bi-file-spreadsheet"></i>  ${tabulado.numTab}</span>` : "");
-
-      const botonDerecha = tabulado.ligaDescTab ? `
-        <a href="${tabulado.ligaDescTab}" target="_blank"
-           class="btn-download ${excel ? "btn-excel" : inter ? "btn-interactivo" : "btn-download-default"}">
-          ${excel ? `<i class="bi bi-filetype-xlsx me-1"></i> EXCEL`
-                  : inter ? `<i class="bi bi-bar-chart-line me-1"></i> Interactivo`
-                          : `<i class="bi bi-download me-1"></i> Descargar`}
-        </a>` : "";
-
-      const botonVistaWebIzq = (vistaWeb && tabulado.ligaTab) ? `
-        <a href="${tabulado.ligaTab}" target="_blank" class="btn-web">
-          <i class="bi bi-globe2 me-1"></i> Vista web
-        </a>` : "";
-
-      const botonAccesoInegiIzq = tabulado.ligaTab ? `
-        <a href="${tabulado.ligaTab}" target="_blank" class="btn-link-inegi">
-          <i class="bi bi-link-45deg me-1"></i> Ver en INEGI
-        </a>` : "";
-
-      return `
-        <div class="tabulado-card">
-          ${tabulado.tituloTab ? `<div class="tabulado-title">${tabulado.tituloTab}</div>` : ""}
-
-          <div class="tabulado-actions">
-            <div class="ta-left">
-              ${botonAccesoInegiIzq}
-              ${botonVistaWebIzq}
-            </div>
-            <div class="ta-right">
-              <div class="ta-right-buttons">
-                ${botonDerecha}
-              </div>
-              <div class="tabulado-info text-end">
-                ${metaLinea}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    modalBody.innerHTML = contenido || 
-    "<div class='text-danger'>No hay ligas disponibles para los tabulados relacionados.</div>";
-    initTooltipsInModal();
-  } catch (error) {
-    console.error(error);
-    modalBody.innerHTML = "<div class='text-danger'>Error al cargar la información.</div>";
-  }
-   
-}
-
-  // ============ MICRODATOS ============
-  const microTrigger = e.target.closest(".badge-microdatos");
-  if (microTrigger) {
-    resetModalHeaderColor();   // <- aquí
-
-    document.getElementById("infoModalLabel").textContent = "Microdatos";
-    const idVar     = microTrigger.getAttribute("data-idvar");
-    const modalBody = document.getElementById("infoModalBody");
-    modalBody.innerHTML = "<div class='text-center'>Cargando...</div>";
-
-  // Detecta tipo de archivo por extensión
-  const getTipoDescarga = (url = "") => {
-    const low = url.toLowerCase();
-    if (low.endsWith(".xls") || low.endsWith(".xlsx")) return "excel";
-    if (low.endsWith(".pdf")) return "pdf";
-    if (low.endsWith(".zip")) return "zip";
-    return "web";
-  };
-
-  const buildDownloadButton = (url) => {
-    if (!url) return "";
-    const tipo = getTipoDescarga(url);
-    let cls = "";
-    let icon = "";
-    let label = "";
-
-    switch (tipo) {
-      case "excel":
-        cls = "btn-excel";
-        icon = '<i class="bi bi-filetype-xlsx me-1"></i>';
-        label = "EXCEL";
-        break;
-      case "pdf":
-        cls = "btn-pdf";
-        icon = '<i class="bi bi-file-earmark-pdf me-1"></i>';
-        label = "PDF";
-        break;
-      case "zip":
-        cls = "btn-zip";
-        icon = '<i class="bi bi-file-earmark-zip me-1"></i>';
-        label = "ZIP";
-        break;
-      default:
-        cls = "btn-web-download";
-        icon = '<i class="bi bi-globe2 me-1"></i>';
-        label = "Web";
-        break;
-    }
-
-    return `
-      <a href="${url}" target="_blank"
-         class="btn-download ${cls}">
-        ${icon} ${label}
-      </a>
-    `;
-  };
-
-  try {
-    const variable = getVariableByIdVar(idVar);
-
-    // 1) ECONÓMICAS con microdatos embebidos
-    if (variable &&
-        variable._source === "economicas-ultima" &&
-        Array.isArray(variable._microdatosList) &&
-        variable._microdatosList.length) {
-
-      const html = variable._microdatosList.map(m => {
-        const comentario = String(m.comentarioA || "").trim();
-
-        const showLabMsg =
-          comentario.includes("Datos disponibles en el laboratorio de microdatos") ||
-          comentario.includes("Microdatos disponibles en el laboratorio de microdatos");
-
-        const labMsgHTML = showLabMsg
-          ? `<div class="microdatos-lab-msg mt-3">
-               ${comentario.match(/(Datos disponibles en el laboratorio de microdatos|Microdatos disponibles en el laboratorio de microdatos)/)[0]}
-             </div>`
-          : "";
-
-        const botonDerecha = buildDownloadButton(m.urlDescriptor || m.urlAcceso);
-
-        const metaLinea = (m.tabla || m.campo)
-        ? `
-          <span
-          data-bs-toggle="tooltip"
-                  data-bs-placement="bottom"
-                  data-bs-container="#infoModal"
-                  title="Nombre de la tabla donde se encuentra la variable"
-          ><i class="bi bi-table"></i></span>
-          ${
-            m.tabla
-              ? `<span
-                  >
-                  ${m.tabla}
-                </span>`
-              : `-`
-          }
-          /
-          <span
-          data-bs-toggle="tooltip"
-                  data-bs-placement="bottom"
-                  data-bs-container="#infoModal"
-                  title="Clave de identificación de la variable en la tabla"
-          ><i class="bi bi-hdd-network me-1"></i></span>
-          ${
-            m.campo
-              ? `<span
-                  >
-                  ${m.campo}
-                </span>`
-              : `-`
-          }
-        `
-        : "";
-
-
-        return `
-          <div class="tabulado-card">
-            
-            <div class="tabulado-actions">
-              <!-- IZQUIERDA: Página Microdatos INEGI -->
-              <div class="ta-left">
-                ${m.urlAcceso ? `
-                  <a href="${m.urlAcceso}" target="_blank" class="btn-link-inegi">
-                    <i class="bi bi-link-45deg me-1"></i> Ver en INEGI
-                  </a>` : ""}
-              </div>
-
-              <!-- DERECHA: botón de descarga + ubicación -->
-              <div class="ta-right">
-                <div class="ta-right-buttons">
-                  ${botonDerecha}
-                </div>
-                ${ubicacion}
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      modalBody.innerHTML = html || "<div class='text-danger'>No hay microdatos disponibles.</div>";
-    initTooltipsInModal();
-    return;
-    }
-
-    // 2) Fallback a /api/microdatos (sociodemográficas, etc.)
-    const res = await fetch(`/api/microdatos`);
-    const data = await res.json();
-    const info = Array.isArray(data)
-      ? data.find(micro => String(micro.idVar) === String(idVar))
-      : (data && data.idVar === idVar ? data : null);
-
-    if (info && (info.ligaMicro || info.ligaDd || info.nomTabla || info.nomCampo)) {
-
-      const botonDerecha = buildDownloadButton(info.ligaDd);
-
-     const metaLinea = (info.nomTabla || info.nomCampo)
-      ? `
-        <span
-        data-bs-toggle="tooltip"
-                data-bs-placement="bottom"
-                data-bs-container="#infoModal"
-                title="Nombre de la tabla donde se encuentra la variable"
-        ><i class="bi bi-table"></i></span>
-        ${
-          info.nomTabla
-            ? `<span
-                >
-                ${info.nomTabla}
-              </span>`
-            : `No disponible`
-        }
-        / 
-        <span
-         data-bs-toggle="tooltip"
-                data-bs-placement="bottom"
-                data-bs-container="#infoModal"
-                title="Clave de identificación de la variable en la tabla"
-        > <i class="bi bi-hdd-network me-1"></i></span>
-        ${
-          info.nomCampo
-            ? `<span>
-                ${info.nomCampo}
-              </span>`
-            : `No disponible`
-        }
-      `
-      : "";
-
-
-      modalBody.innerHTML = `
-        <div class="tabulado-card micro-card">
-
-          <div class="tabulado-actions">
-            <!-- IZQUIERDA: Página Microdatos INEGI -->
-            <div class="ta-left">
-              ${info.ligaMicro ? `
-                <a href="${info.ligaMicro}" target="_blank" class="btn-link-inegi">
-                  <i class="bi bi-link-45deg me-1"></i> Ver en INEGI
-                </a>` : ""}
-            </div>
-
-            <!-- DERECHA: botón descarga + ubicación -->
-            <div class="ta-right">
-              <div class="ta-right-buttons">
-                ${botonDerecha}
-              </div>
-              <div class="tabulado-info text-end">
-                ${metaLinea}
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-      initTooltipsInModal();
-    } else {
-      modalBody.innerHTML = "<div class='text-danger'>No hay información de microdatos disponible.</div>";
-    }
-  } catch (err) {
-    console.error(err);
-    modalBody.innerHTML = "<div class='text-danger'>Error al cargar la información.</div>";
-  }
- 
-}
-
-// ============ DATOS ABIERTOS ============
- 
-  const datosTrigger = e.target.closest(".badge-datosabiertos");
-  if (datosTrigger) {
-    if (datosTrigger.classList.contains("disabled")) return;
-
-    const labelEl = document.getElementById("infoModalLabel");
-    const bodyEl  = document.getElementById("infoModalBody");
-
-    if (labelEl) labelEl.textContent = "Datos Abiertos";
-    if (bodyEl)  bodyEl.innerHTML = "<div class='text-center'>Cargando...</div>";
-
-    const idVar  = datosTrigger.getAttribute("data-idvar");
-
-  function getVariableByIdVar(id) {
-    return (Array.isArray(allData) ? allData : []).find(
-      (v) => String(v.idVar) === String(id)
-    );
-  }
-
-  // Detectores de tipo de archivo
-  const isExcel = v => typeof v === "string" && (v.includes(".xls") || v.includes(".xlsx"));
-  const isPdf   = v => typeof v === "string" && v.includes(".pdf");
-  const isZip   = v => typeof v === "string" && v.includes(".zip");
-
- try {
-  const variable = getVariableByIdVar(idVar);
-
-  // HOTFIX: evitar que truene si la función no existe
-  let unidad = null;
-  if (typeof getUnidadDeVariable === "function") {
-    unidad = getUnidadDeVariable(variable);
-  }
-
-  // SOCIO: en proceso de captura
-  if (unidad === 'socio') {
-    bodyEl.innerHTML = `<div class="alert alert-info mb-0">En proceso de captura</div>`;
-    return;
-  }
-
-    // ECONÓMICAS con datos embebidos
-    if (variable &&
-        variable.relAbiertos === 'Sí' &&
-        Array.isArray(variable._datosAbiertosList) &&
-        variable._datosAbiertosList.length) {
-
-      const contenido = variable._datosAbiertosList.map(r => {
-        const file = r.urlDescarga || "";
-        let btnClass = "btn-web";
-        let btnIcon  = `<i class="bi bi-globe2 me-1"></i>`;
-        let btnText  = "Ver";
-
-        if (isExcel(file)) {
-          btnClass = "btn-excel";
-          btnIcon = `<i class="bi bi-filetype-xlsx me-1"></i>`;
-          btnText = "EXCEL";
-        } else if (isPdf(file)) {
-          btnClass = "btn-pdf";
-          btnIcon = `<i class="bi bi-file-earmark-pdf me-1"></i>`;
-          btnText = "PDF";
-        } else if (isZip(file)) {
-          btnClass = "btn-zip";
-          btnIcon = `<i class="bi bi-file-earmark-zip me-1"></i>`;
-          btnText = "ZIP";
-        }
-
-        const botonDerecha = r.urlDescarga ? `
-          <a href="${r.urlDescarga}" target="_blank"
-             class="btn-download ${btnClass}">
-            ${btnIcon} ${btnText}
-          </a>` : "";
-
-        const ubicacion = (r.tabla || r.campo)
-        ? `
-          <div class="tabulado-info text-end">
-            <span data-bs-toggle="tooltip"
-                    data-bs-placement="bottom"
-                    data-bs-container="#infoModal"
-                    title="Nombre de la tabla donde se encuentra la variable">
-                    <i class="bi bi-table"></i>
-                    </span>
-            ${
-              r.tabla
-                ? `<span
-                    >
-                    ${r.tabla}
-                  </span>`
-                : `No disponible`
-            }
-            /
-             <span
-              data-bs-toggle="tooltip"
-                    data-bs-placement="bottom"
-                    data-bs-container="#infoModal"
-                    title="Clave de identificación de la variable en la tabla"> 
-                    <i class="bi bi-hdd-network me-1"></i></span>
-            ${
-              r.campo
-                ? `<span>
-                    ${r.campo}
-                  </span>`
-                : `No disponible`
-            }
-          </div>
-        `
-        : "";
-
-        return `
-          <div class="tabulado-card">
-            
-            <div class="tabulado-actions">
-              <div class="ta-left">
-                ${r.urlAcceso ? `
-                  <a href="${r.urlAcceso}" target="_blank" class="btn-link-inegi">
-                    <i class="bi bi-link-45deg me-1"></i> Ver en INEGI
-                  </a>` : ""}
-              </div>
-
-              <div class="ta-right">
-                <div class="ta-right-buttons">
-                  ${botonDerecha}
-                </div>
-                ${ubicacion}
-              </div>
-            </div>
-          </div>
-        `;
-      }).join("");
-
-      bodyEl.innerHTML = contenido || "<div class='text-danger'>No hay información disponible.</div>";
-      initTooltipsInModal();
-      return;
-    }
-
-    // Si no hay embebidos
-    bodyEl.innerHTML = "<div class='alert alert-info mb-0'>En proceso de captura.</div>";
-
-  } catch (err) {
-    console.error(err);
-    bodyEl.innerHTML = "<div class='text-danger'>Error al cargar Datos Abiertos.</div>";
-  }
-  
-}
-
-// ============ MDEA (chips) ============
-if (e.target.closest(".mdea-chip")) {
-  
-  // Limpiar header SIEMPRE antes de pintar el nuevo
-  resetModalHeaderColor();
-
-  const trigger  = e.target.closest(".mdea-chip");
-  const idVar    = trigger.getAttribute("data-idvar");
-  const compNum  = parseInt(trigger.getAttribute("data-mdea-comp"), 10);
-
-  const modal      = document.getElementById("infoModal");
-  const modalTitle = document.getElementById("infoModalLabel");
-  const modalBody  = document.getElementById("infoModalBody");
-
-  if (modalBody) modalBody.innerHTML = "<div class='text-center'>Cargando...</div>";
-
-  const fmt = (s) =>
-    (s || "")
-      .toString()
-      .replace(/_/g, " ")
-      .replace(/-/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-  function getVariableByIdVar(id) {
-    return (Array.isArray(allData) ? allData : []).find(
-      (v) => String(v.idVar) === String(id)
-    );
-  }
-
-  // Obtener unidad (eco/socio)
-  function getUnidadDeVariable(v) {
-    if (!v) return null;
-    if (v._source === "economicas-ultima") return "eco";
-    return "socio";
-  }
-
-  (async () => {
-    try {
-      const variable = getVariableByIdVar(idVar);
-      const unidad   = getUnidadDeVariable(variable);
-
-      // Pintar header según unidad
-      if (modal) {
-        if (unidad === "eco") modal.querySelector(".modal-header").style.background = "var(--eco)";
-        else modal.querySelector(".modal-header").style.background = "var(--socio)";
-        modal.querySelector(".modal-header").style.color = "white";
-      }
-
-      // ========================
-      //    ECONÓMICAS MDEA
-      // ========================
-      if (
-        variable &&
-        variable._source === "economicas-ultima" &&
-        Array.isArray(variable._mdeasList) &&
-        variable._mdeasList.length
-      ) {
-        const lista = variable._mdeasList.filter(
-          (m) => getMdeaComponentNumber(m.componente) === compNum
-        );
-
-        if (!lista.length) {
-          modalBody.innerHTML =
-            "<div class='text-danger'>No hay información MDEA para ese componente.</div>";
-          return;
-        }
-
-        // Obtener nombre del componente para el TÍTULO
-        const compNameRaw = lista[0].componenteNombre || "";
-        const compTitle = fmt(
-          compNameRaw
-            .replace(/^\d+\s*/, "")    // quitar número al inicio
-            .replace(/\s*\d+$/, "")    // quitar número al final
-        );
-
-        modalTitle.textContent = `Componente ${compNum} — ${compTitle}`;
-
-        modalBody.innerHTML = lista
-          .map((m) => {
-            const scName = fmt(m.subcomponenteNombre);
-            const tName = fmt(m.temaNombre);
-            const e1Name = fmt(m.estadistica1Nombre);
-            const e2Name = fmt(m.estadistica2Nombre);
-
-            // NO mostrar si vienen vacíos, null o "-"
-            const line = (label, val) =>
-              val && val !== "-" ? `<div><strong>${label}:</strong> ${val}</div>` : "";
-
-            return `
-              <div class="mb-2 border-bottom pb-2">
-                ${line("Subcomponente", scName)}
-                ${line("Tema", tName)}
-                ${line("Estadística 1", e1Name)}
-                ${line("Estadística 2", e2Name)}
-              </div>
-            `;
-          })
-          .join("");
-
-        return;
-      }
-
-      // ========================
-      //    SOCIODEMOGRÁFICAS
-      // ========================
-      const all = await fetch("/api/mdea")
-        .then((r) => r.json())
-        .then((d) => (Array.isArray(d) ? d : d ? [d] : []));
-
-      let registros = all.filter((r) => String(r.idVar) === String(idVar));
-
-      if (!registros.length) {
-        modalBody.innerHTML =
-          "<div class='text-danger'>No hay información del MDEA para esta variable.</div>";
-        return;
-      }
-
-      const byComp = registros.filter((r) => {
-        const n = getMdeaComponentNumber(
-          r.componente ??
-            r.compo ??
-            r.componenteNombre ??
-            r.componenteId ??
-            r.componenteCodigo
-        );
-        return n === compNum;
-      });
-
-      if (byComp.length) registros = byComp;
-
-      const rawName =
-        registros[0].componenteNombre ??
-        registros[0].componente ??
-        registros[0].compo ??
-        "";
-
-      const compTitle = fmt(
-        rawName.replace(/^\d+\s*/, "").replace(/\s*\d+$/, "")
-      );
-
-      modalTitle.textContent = `Componente ${compNum} — ${compTitle}`;
-
-      modalBody.innerHTML = registros
-        .map((info) => {
-          const line = (label, val) =>
-            val && val !== "-" ? `<div><strong>${label}:</strong> ${fmt(val)}</div>` : "";
-
-          return `
-            <div class="mb-2 border-bottom pb-2">
-              ${line("Subcomponente", info.subcompo || info.subcomponente)}
-              ${line("Tema/Tópico", info.topico || info.tema)}
-              ${line("Estadística 1", info.estAmbiental || info.estadistica1)}
-              ${line("Estadística 2", info.estadistica2)}
-            </div>
-          `;
-        })
-        .join("");
-    } catch (err) {
-      console.error(err);
-      modalBody.innerHTML =
-        "<div class='text-danger'>Error al cargar la información del MDEA.</div>";
-    }
-  })();
-}
-
-
-
-// ============ ODS ============
-if (e.target.closest(".badge-ods")) {
-  // Siempre que entro a ODS reseteo primero y luego pinto color
-  resetModalHeaderColor();
-
-  const trigger = e.target.closest(".badge-ods");
-  if (trigger.classList.contains("disabled")) return;
-
-  const clickedOds = trigger.getAttribute("data-ods"); // "1".."17"
-  const idVar      = trigger.getAttribute("data-idvar");
-
-  const modal      = document.getElementById("infoModal");
-  const modalTitle = document.getElementById("infoModalLabel");
-  const modalBody  = document.getElementById("infoModalBody");
-
-  // Aplica color SOLO si viene un ODS válido
-  if (clickedOds && modal) {
-    setOdsModalHeaderColor(clickedOds);
-  }
-
-  // Título de arranque (se sobreescribe con "ODS N. Nombre")
-  if (modalTitle) {
-    modalTitle.textContent = "Alineación de la variable con los ODS";
-  }
-  if (modalBody) modalBody.innerHTML = "<div class='text-center'>Cargando...</div>";
-
-  const fmt = (s) => (s || "-").toString().replace(/_/g, " ").replace(/\s+/g, " ").trim();
-
-  try {
-    // helper local basado en tu allData
-    function getVariableByIdVar(id) {
-      return (Array.isArray(allData) ? allData : []).find(v => String(v.idVar) === String(id));
-    }
-
-    const variable = getVariableByIdVar(idVar);
-
-    // ------------------------------------------------------------------
-    // 1) ECONÓMICAS con _odsList embebido
-    // ------------------------------------------------------------------
-    if (variable && variable._source === "economicas-ultima" &&
-        Array.isArray(variable._odsList) && variable._odsList.length) {
-
-      let lista = variable._odsList;
-      if (clickedOds) {
-        const target = parseInt(clickedOds, 10);
-        lista = lista.filter(o => getOdsObjectiveNumber(o?.objetivo) === target);
-      }
-
-      if (!lista.length) {
-        modalBody.innerHTML = "<div class='text-danger'>No hay información de ODS para ese objetivo.</div>";
-        return;
-      }
-
-      // Usamos el PRIMER registro para construir el título del modal (ODS N. Nombre)
-      const first  = lista[0];
-      const objNum = formatOdsObjetivo(first.objetivo);
-      const objNom = fmt(first.objetivoNombre);
-
-      if (modalTitle && clickedOds) {
-        modalTitle.textContent = `ODS ${objNum}. ${objNom}`;
-      }
-
-      const varTitle = fmt((variable?.varAsig) || idVar);
-
-       // 👉 Para evitar repetir la misma meta N veces en el modal
-      const metasVistas = new Set();
-
-      modalBody.innerHTML = `
-        <div class="list-group">
-          ${lista.map(o => {
-            // META: código + nombre
-            const metaCode  = cleanUnderscores(formatOdsComposite(o.meta));
-            const metaName  = cleanUnderscores(o.metaNombre || "");
-            const showMeta  = metaCode && metaCode !== "-";
-
-            // Si la meta ya se mostró antes, NO volvemos a mostrar el bloque de meta
-            let metaBlock = "";
-            if (showMeta && !metasVistas.has(metaCode)) {
-              metaBlock = `
-                <div class="small mb-1"><strong>Meta ${metaCode}: </strong></div>
-                ${metaName ? `<div class="small mb-1">${metaName}</div>` : ""}`;
-              metasVistas.add(metaCode);
-            }
-
-            // INDICADOR: solo si es válido
-            let indicadorBlock = "";
-            if (hasValidIndicador(o.indicador)) {
-              const indCode = cleanUnderscores(formatOdsComposite(o.indicador));
-              const nameIndic = getIndicadorNameFromCatalog(
-                odsNumber,
-                o.meta,
-                o.indicador,
-                catalogIndic
-              );
-
-              indicadorBlock = `
-                <div class="small mb-1"><strong>${indCode}</strong></div>
-                ${nameIndic ? `<div class="small mb-1">${nameIndic}</div>` : ""}`;
-            }
-
-            // Si NO hay meta (porque es duplicada) y NO hay indicador, no pintamos nada
-            if (!metaBlock && !indicadorBlock) {
-              return "";
-            }
-
-            return `
-              <div class="list-group-item">
-                ${metaBlock}
-                ${indicadorBlock}
-              </div>
-            `;
-          }).join("")}
-        </div>
-      `;
-      return;
-    }
-
-
-    // ------------------------------------------------------------------
-    // 2) SOCIODEMOGRÁFICAS (fallback /api/ods + /api/ods_indicadores + /api/meta_ods)
-    // ------------------------------------------------------------------
-    const [resOds, resIndic, resMeta] = await Promise.all([
-      fetch(`/api/ods`),
-      fetch(`/api/ods_indicadores`), // catálogo indicadores
-      fetch(`/api/meta_ods`)         // catálogo metas
-    ]);
-
-    const data = await resOds.json();
-    let registros = Array.isArray(data)
-      ? data.filter(ods => String(ods.idVar) === String(idVar))
-      : (data && String(data.idVar) === String(idVar) ? [data] : []);
-
-    if (clickedOds) {
-      const target = parseInt(clickedOds, 10);
-      registros = registros.filter(r => getOdsObjectiveNumber(r?.ods ?? r?.objetivo) === target);
-    }
-
-    if (!registros.length) {
-      modalBody.innerHTML = "<div class='text-danger'>No hay información de ODS para ese objetivo.</div>";
-      return;
-    }
-
-    // Catálogos
-    let catalogIndic = [];
-    let catalogMeta  = [];
-    try {
-      const rawIndic = await resIndic.json();
-      catalogIndic = Array.isArray(rawIndic) ? rawIndic : (rawIndic ? [rawIndic] : []);
-    } catch (e) {
-      catalogIndic = [];
-    }
-    try {
-      const rawMeta = await resMeta.json();
-      catalogMeta = Array.isArray(rawMeta) ? rawMeta : (rawMeta ? [rawMeta] : []);
-    } catch (e) {
-      catalogMeta = [];
-    }
-
-    const first  = registros[0];
-    const objNum = formatOdsObjetivo(first.ods ?? first.objetivo);
-    let rawName = first.odsNombre || first.objetivoNombre || first.ods;
-    const cleanName = cleanOdsTitleName(rawName);
-
-    modalTitle.textContent = `ODS ${objNum}. ${cleanName}`;
-
-    const varTitle = fmt((variable?.varAsig) || idVar);
-
-    // 👉 Set para saber qué metas ya se pintaron
-    const metasVistas = new Set();
-
-    modalBody.innerHTML = `
-      <div class="list-group">
-        ${registros.map(info => {
-          const odsNumber = getOdsObjectiveNumber(info.ods ?? info.objetivo);
-
-          const metaCode = cleanUnderscores(formatOdsComposite(info.meta));
-          const showMeta = metaCode && metaCode !== "-";
-
-          const metaNameFromCat = getMetaNameFromCatalog(
-            odsNumber,
-            info.meta,
-            catalogMeta
-          );
-
-          let metaBlock = "";
-          if (showMeta && !metasVistas.has(metaCode)) {
-            metaBlock = `
-              <div class="small mb-1"><strong>${metaCode}</strong> </div>
-              ${metaNameFromCat ? `<div class="small mb-1">${metaNameFromCat}</div>` : ""}`;
-            metasVistas.add(metaCode);
-          }
-
-          let indicadorBlock = "";
-          if (hasValidIndicador(info.indicador)) {
-            const indCode   = cleanUnderscores(formatOdsComposite(info.indicador));
-            const nameIndic = getIndicadorNameFromCatalog(
-              odsNumber,
-              info.meta,
-              info.indicador,
-              catalogIndic
-            );
-
-            indicadorBlock = `
-              <div class="small mb-1"><strong>${indCode}</strong></div>
-              ${nameIndic ? `<div class="small mb-1">${nameIndic}</div>` : ""}`;
-          }
-
-          // Si meta es duplicada y no hay indicador, no se pinta nada
-          if (!metaBlock && !indicadorBlock) {
-            return "";
-          }
-
-          return `
-            <div class="list-group-item">
-              ${metaBlock}
-              ${indicadorBlock}
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
-
-  } catch (err) {
-    console.error(err);
-    if (modalBody) {
-      modalBody.innerHTML = "<div class='text-danger'>Error al cargar la información de ODS.</div>";
-    }
-  }
-}
-
-}); // ← fin del addEventListener
-
-
-
-// Almacenar y recuperar término de búsqueda en localStorage
-document.addEventListener("DOMContentLoaded", function () {
-  const searchInput = document.getElementById("searchInput");
-  const storedTerm = localStorage.getItem("variableSearchTerm");
-  if (storedTerm && searchInput) {
-    searchInput.value = storedTerm;
-    localStorage.removeItem("variableSearchTerm");
-    // Simula Enter para disparar la búsqueda automáticamente
-    const event = new Event('input', { bubbles: true });
-    searchInput.dispatchEvent(event);
-    if (typeof searchInput.form !== "undefined" && searchInput.form) {
-      searchInput.form.dispatchEvent(new Event('submit', { bubbles: true }));
-    }
-  }
-});
-
-// Cargar clasificaciones antes de renderizar variables
-
-// ---- Nota de fuente al final de la página (texto pequeño, no altera layout) ----
-
-// Si decides conservar ese bloque, ajústalo así:
-
-function getClasificacionesPorVariableHighlighted(idVar, term) {
-  // Buscar entradas del catálogo que pertenezcan a esta variable
-  const matches = (clasificacionesGlobal || []).filter(c => {
-    const candidateIds = [c.id_a, c.id_s, c.idVar, c.id_var, c.id, c.idVarStr, c.variableId];
-    return candidateIds.some(x => String(x || '').trim() === String(idVar || '').trim());
+  function showProcessSkeleton() {} 
+  function showVariablesSkeleton() {}
+  function showCounterSpinner() {}
+  function showListSpinner() {}
+  function hideCounterSpinner() {}
+  function hideListSpinner() {}
+
+  // Script para marcar el navbar
+  const currentPath = window.location.pathname.split("/").pop();
+  document.querySelectorAll(".navbar-nav .nav-link").forEach(link => {
+    if (link.getAttribute("href") === currentPath) link.classList.add("active");
   });
 
-  const values = [];
-  matches.forEach(c => {
-    const raw = c.clasificaciones || c.clase || c.clasificacion || c.valores || c.val || c.items || c.categorias || null;
-    if (!raw) return;
-    if (Array.isArray(raw)) {
-      raw.forEach(x => { const s = (x||'').toString().trim(); if (s && !values.includes(s)) values.push(s); });
-    } else if (typeof raw === 'object') {
-      Object.values(raw).forEach(x => { const s = (x||'').toString().trim(); if (s && !values.includes(s)) values.push(s); });
-    } else {
-      String(raw).split(/\r?\n|;|\|/).map(x => x.trim()).filter(Boolean).forEach(x => { if (!values.includes(x)) values.push(x); });
-    }
-  });
-
-  if (!values.length) return '<span class="text-muted">Sin clasificación</span>';
-  const html = values.map(c => `<li>${term ? highlightTerm(c, term) : c}</li>`).join('');
-  return `<ul class="mb-0 ps-3">${html}</ul>`;
-}
-
-// Nueva función para renderizar comentarios
-
-
-// Espera al menos 1000ms antes de mostrar el contenido principal
-document.getElementById("loader").style.display = "none";
-document.getElementById("mainContent").style.display = "";
-
-// Resaltar término de búsqueda en los resultados
-function highlightTerm(text, term) {
-  if (!term) return text;
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const regex = new RegExp(`(${escaped})`, 'gi');
-  return text.replace(regex, '<mark class="custom-highlight">$1</mark>');
-}
-
-// ……………………………
-// AQUÍ TERMINA TODA LA LÓGICA DE VARIABLES
-// ……………………………
+  // Ejecución de inicialización
+  cargarDatosIniciales();
 });
