@@ -207,12 +207,14 @@ document.addEventListener("DOMContentLoaded", function () {
         procs.forEach(p => {
           const opt = document.createElement("option");
           opt.value = p.acronimo;
-          opt.text = p.pp;
+          opt.text = `• ${p.pp} (${p.acronimo})`;
           processSelect.appendChild(opt);
         });
       }
 
       currentFilteredData = [...allData];
+      // Ordenar alfabéticamente por defecto al cargar la página
+      currentFilteredData = sortVariablesAZ(currentFilteredData);
       renderPage(currentFilteredData, currentPage);
       setupPagination(currentFilteredData);
 
@@ -523,6 +525,18 @@ document.addEventListener("DOMContentLoaded", function () {
     return MDEA_COMPONENTS[num] ? `${num}. ${MDEA_COMPONENTS[num]}` : `Componente ${num}`;
   }
 
+  // Helper NUEVO para limpiar y extraer solo el número del ODS (ej. "ODS_11" -> 11)
+  function getOdsObjectiveNumber(val) {
+    if (!val) return null;
+    // Extrae cualquier número de 1 o 2 dígitos del texto
+    const match = String(val).match(/(\d{1,2})/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (num >= 1 && num <= 17) return num; // Solo retorna si es un ODS válido (1-17)
+    }
+    return null;
+  }
+
   // ==========================================
   // RENDERIZADO DE LAS TARJETAS HTML (LISTADO)
   // ==========================================
@@ -581,11 +595,13 @@ document.addEventListener("DOMContentLoaded", function () {
         </span>
       `;
 
-      // 2. Lógica para "Alineación ODS" cruzando con la api precargada
+      // 2. Lógica para "Alineación ODS" (Ahora usa la nueva función limpiadora)
       let odsHTML = `<span class="badge bg-secondary disabled badge-ods" style="pointer-events:none;cursor:default;">Sin ODS</span>`;
       if (variable.ods) {
         const odsRecords = (window.odsGlobal || []).filter(o => String(o.idVar) === String(variable.idVar) || String(o.id_a) === String(variable.id_a));
-        const odsNums = [...new Set(odsRecords.map(o => o.ods || o.objetivo).filter(n => n != null))].sort((a,b)=>a-b);
+        
+        // Aquí mandamos llamar la función extractora "getOdsObjectiveNumber"
+        const odsNums = [...new Set(odsRecords.map(o => getOdsObjectiveNumber(o.ods || o.objetivo)).filter(n => n !== null))].sort((a,b)=>a-b);
         
         if (odsNums.length > 0) {
            odsHTML = odsNums.map(n => `
@@ -598,7 +614,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
-      // 3. Lógica para "Alineación MDEA" cruzando con la api precargada
+      // 3. Lógica para "Alineación MDEA"
       let mdeaHTML = `<span class="badge bg-secondary disabled badge-mdea" style="pointer-events:none;cursor:default;">Sin MDEA</span>`;
       if (variable.mdea) {
         const mdeaRecords = (window.mdeasGlobal || []).filter(m => String(m.idVar) === String(variable.idVar) || String(m.id_a) === String(variable.id_a));
@@ -633,37 +649,43 @@ document.addEventListener("DOMContentLoaded", function () {
           <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#variablesContainer">
             <div class="accordion-body">
               <div class="mb-2 text-muted" style="font-size: 0.85rem;">
-                <i class="bi bi-calendar3"></i> <strong>Año de Referencia:</strong> ${variable.anio_referencia}
+                <i class="bi bi-calendar3"></i> <strong>Año de Referencia:</strong> ${variable.id_a}
                 <span class="badge bg-secondary ms-2">${variable.idVar}</span>
               </div>
               
               <div class="row g-3 mt-1">
                 <div class="col-md-6">
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-question-circle me-1"></i>Pregunta:</span>
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Pregunta utilizada para recolectar esta variable en el cuestionario">
+                    <i class="bi bi-question-circle me-1"></i>Pregunta:</span>
                     <div class="ps-3"><p>${hPregLit}</p></div>
                   </div>
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-list-check me-1"></i>Clasificación:</span>
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Respuestas posibles de la pregunta de captación. Si la pregunta es abierta, este campo puede no aplicarse">
+                    <i class="bi bi-list-check me-1"></i>Clasificación:</span>
                     <div>${getClasificacionesPorVariableHighlighted(variable, term)}</div>
                   </div>
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-info-circle me-1"></i>Definición:</span>
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Descripción detallada de la variable tal como aparece en la Fuente" >
+                    <i class="bi bi-info-circle me-1"></i>Definición:</span>
                     <div class="ps-3">${hDefVar}</div>
                   </div>
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-tag me-1"></i>Variable Fuente:</span>
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Denominación de la variable proporcionada por la Fuente" >
+                    <i class="bi bi-tag me-1"></i>Variable Fuente:</span>
                     <span class="text-dark ms-1 fw-normal">${hNomVar}</span>
                   </div>
                 </div>
                 
                 <div class="col-md-6">
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-diagram-3 me-1"></i>Categoría:</span>
+                    <span class="fw-semibold text-secondary"  data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Conjunto de personas, elemento o unidades que se estudian o cuantifican por la variable">
+                    <i class="bi bi-diagram-3 me-1"></i>Categoría/Universo:</span>
                     <span class="text-dark ms-1 fw-normal">${huniverso}</span>
                   </div>
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary"><i class="bi bi-layers me-1"></i>Temática:</span>
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-title="Tema al que se relaciona la variable">
+                    <i class="bi bi-layers me-1"></i>Temática:</span>
                     <div class="ps-3">
                       <span>Principal:</span> <span class="text-dark fw-normal">${hTema} / ${hSubtema}</span><br>
                       ${variable.tema2 ? `<span>Secundaria:</span> <span class="text-dark fw-normal">${hTema2} / ${hSubtema2}</span>` : ""}
@@ -671,7 +693,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
                   
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary">
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left"
+                                   data-bs-title="Disponibilidad de los datos de la variable según los productos de información: tabulados, microdatos o datos abiertos">
                       <i class="bi bi-link-45deg me-1"></i>Consulta de datos en:
                     </span>
                     <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
@@ -680,7 +703,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
 
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary mt-2">
+                    <span class="fw-semibold text-secondary mt-2"  data-bs-toggle="tooltip" data-bs-placement="left"
+                                  data-bs-title="Objetivos del Desarrollo Sostenible (ODS) a los que contribuye la variable">
                       <i class="bi bi-globe me-1"></i>Alineación con los ODS:
                     </span>
                     <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
@@ -689,7 +713,8 @@ document.addEventListener("DOMContentLoaded", function () {
                   </div>
 
                   <div class="mb-2">
-                    <span class="fw-semibold text-secondary">
+                    <span class="fw-semibold text-secondary" data-bs-toggle="tooltip" data-bs-placement="left"
+                                    data-bs-title="Verifica el componente MDEA con el que se alinea la variable.">
                       <i class="bi bi-tree me-1"></i>Alineación con el MDEA:
                     </span>
                     <div class="ps-3 d-flex flex-wrap gap-2 mt-1">
@@ -697,7 +722,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     </div>
                   </div>
 
-                  ${variable.comentario ? `<div class="mb-2"><span class="fw-semibold text-secondary"><i class="bi bi-chat-left-text me-1"></i>Comentario:</span><div class="ps-3 text-dark">${variable.comentario}</div></div>` : ""}
+                
                 </div>
               </div>
             </div>
@@ -706,7 +731,17 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
       container.appendChild(card);
     });
+
+    // activar tooltips en todos los elementos nuevos
+    initBootstrapTooltips();
   }
+
+  function initBootstrapTooltips() {
+    if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+  }
+
   // ==========================================
   // PAGINACIÓN
   // ==========================================
@@ -737,7 +772,13 @@ document.addEventListener("DOMContentLoaded", function () {
       return li;
     };
 
-    if (currentPage > 1) paginationContainer.appendChild(createLi("«", currentPage - 1));
+    // Flecha anterior y "Primera página" si estamos en página 2 o superior
+    if (currentPage > 1) {
+      paginationContainer.appendChild(createLi("Primera página", 1));
+      if (currentPage >= 2) {
+       paginationContainer.appendChild(createLi("«", currentPage - 1)); 
+      }
+    }
 
     let start = Math.max(1, currentPage - 2);
     let end = Math.min(totalPages, start + 4);
@@ -747,7 +788,12 @@ document.addEventListener("DOMContentLoaded", function () {
       paginationContainer.appendChild(createLi(i, i, false, i === currentPage));
     }
 
-    if (currentPage < totalPages) paginationContainer.appendChild(createLi("»", currentPage + 1));
+    // "Última página" y flecha siguiente si no estamos en la última página
+    if (currentPage < totalPages) {
+      paginationContainer.appendChild(createLi("»", currentPage + 1));
+      paginationContainer.appendChild(createLi("Última página", totalPages));
+      
+    }
   }
 
   // ==========================================
@@ -758,12 +804,21 @@ document.addEventListener("DOMContentLoaded", function () {
     if (filtroURLAplicado) return;
     const urlParams = new URLSearchParams(window.location.search);
     const searchParam = urlParams.get("search");
+    const idPpParam = urlParams.get("idPp");
 
     if (searchParam && searchInput) {
       searchInput.value = searchParam;
       currentSearchTerm = searchParam;
+    }
+
+    if (idPpParam && processSelect) {
+      processSelect.value = idPpParam.toUpperCase(); // Asumiendo que los acrónimos están en mayúsculas
+    }
+
+    if (searchParam || idPpParam) {
       applyFilters();
     }
+
     filtroURLAplicado = true;
   }
 

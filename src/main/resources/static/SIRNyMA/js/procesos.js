@@ -11,7 +11,7 @@ const GLOBAL_DEFAULTS = {
   unidades: 5,
   procesosTotales: 144,        // Ajusta según tus datos reales
   procesosAmbientales: 49,     // Ajusta según tus datos reales
-  variablesAmbientales: 4842   // Ajusta según tus datos reales
+  variablesAmbientales: 6234   // Ajusta según tus datos reales
 };
 
 // === Formateo de números ===
@@ -85,12 +85,20 @@ function normalizarProceso(item) {
   const inicioFmt = rawInicio ? String(rawInicio) : "ND";
   const conclusionFmt = rawConclusion ? String(rawConclusion) : "ND";
 
+  // 3.1. Periodicidad procesada (un proceso puede tener varias periodicidades separadas por coma)
+  const periodicidadRaw = String(item.periodicidad || "No disponible").trim();
+  const periodicidades = periodicidadRaw
+    .split(',')
+    .map(p => p.trim())
+    .filter(p => p.length > 0);
+
   return {
     idPp: id,
     pp: nombre,
     unidadOrigen: item.unidad || "Desconocida", // Guardamos para debug
     estatus: item.estatus || "Desconocido",
-    periodicidad: item.periodicidad || "No disponible",
+    periodicidad: periodicidadRaw,
+    periodicidades,
     // Campos nuevos de la entidad actualizada
     inicio: rawInicio,
     conclusion: rawConclusion,
@@ -302,10 +310,27 @@ function renderProcesos(procesos, conteo, container) {
 }
 
 // === FILTROS ===
+function obtenerOrdenPeriodicidad(p) {
+  const normal = String(p || '').trim().toLowerCase();
+  if (normal === 'no determinado') return 0;
+  if (normal === 'única' || normal === 'unica') return 10;
+  if (normal === 'mensual') return 20;
+  if (normal === 'anual') return 30;
+  const cadaMatch = normal.match(/^cada\s+(\d+)\s*años?$/i);
+  if (cadaMatch) return 100 + Number(cadaMatch[1]);
+  return 1000; // valores no esperados al final
+}
+
 function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
   const selectPerio = document.getElementById("filtrarPeriodicidad");
   if (selectPerio) {
-    const periodos = [...new Set(procesosGlobal.map(p => p.periodicidad))].sort();
+    const periodos = [...new Set(procesosGlobal.flatMap(p => p.periodicidades || []))];
+    periodos.sort((a, b) => {
+      const ra = obtenerOrdenPeriodicidad(a);
+      const rb = obtenerOrdenPeriodicidad(b);
+      if (ra !== rb) return ra - rb;
+      return String(a).localeCompare(String(b), 'es', { sensitivity: 'base' });
+    });
     selectPerio.innerHTML = '<option value="">Filtrar por periodicidad...</option>' + 
       periodos.map(p => `<option value="${p}">${p}</option>`).join('');
   }
@@ -318,7 +343,7 @@ function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
 
     let resultado = procesosGlobal.filter(p => {
       if (estatusVal && (p.estatus || '').toLowerCase() !== estatusVal) return false;
-      if (periodVal && p.periodicidad !== periodVal) return false;
+      if (periodVal && !((p.periodicidades || []).includes(periodVal))) return false;
       if (iinCheck && !p.gradoMadur) return false;
       return true;
     });
