@@ -590,7 +590,10 @@ document.addEventListener("DOMContentLoaded", function () {
         return yA - yB; 
     });
 
-    let html = `<div class="position-absolute" style="height: 3px; background: #cbd5e1; left: 25px; right: 25px; top: 21px; z-index: 0;"></div>`;
+    let html = `<div class="position-relative" style="min-height: 75px;">
+      <div class="position-absolute" style="height: 3px; background: #cbd5e1; left: 25px; right: 25px; top: 14px; z-index: 0;"></div>
+      <div class="d-flex align-items-center position-relative" style="gap: 30px; overflow-x: auto; padding-right: 10px; padding-top: 2px;">
+    `;
     
     sorted.forEach((v) => {
       // USAMOS LA LLAVE ÚNICA (ID + AÑO) PARA IDENTIFICAR EXACTAMENTE QUÉ NODO ES CUAL
@@ -616,6 +619,25 @@ document.addEventListener("DOMContentLoaded", function () {
         </div>
       `;
     });
+
+    html += `</div></div>`;
+
+    const legend = `
+      <div class="timeline-legend mt-2 small text-center">
+        <div class="d-flex justify-content-center flex-wrap gap-4">
+          <div class="d-flex align-items-center gap-2">
+            <span style="display:inline-block;width:14px;height:14px;background:#facc15;border:1px solid #d97706;border-radius:3px;"></span>
+            <span>Años Referenciados en los que aparece la variable</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span style="display:inline-block;width:14px;height:14px;background:#16a34a;border:1px solid #15803d;border-radius:3px;"></span>
+            <span>Año donde se visualiza la variable seleccionada</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    html += legend;
     return html;
   }
 
@@ -715,12 +737,16 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Textos de los tooltips (puedes editarlos si prefieres otra definición)
-    const ttPregunta = "Pregunta literal formulada en el instrumento de captación.";
-    const ttClasificacion = "Catálogos o agrupaciones con las que cuenta la variable.";
-    const ttDefinicion = "Concepto o significado de la variable.";
-    const ttVarFuente = "Nombre original de la variable en la base de datos fuente.";
-    const ttUniverso = "Población o conjunto de elementos a los que va dirigida la variable.";
-    const ttTematica = "Tema y subtema al que pertenece la variable.";
+    const ttPregunta = "Pregunta utilizada para recolectar esta variable en el cuestionario";
+    const ttClasificacion = "Respuestas posibles de la pregunta de captación. Si la pregunta es abierta, este campo puede no aplicarse";
+    const ttDefinicion = "Descripción detallada de la variable tal como aparece en la Fuente";
+    const ttVarFuente = "Denominación de la variable proporcionada por la Fuente";
+    const ttUniverso = "Conjunto de personas, elemento o unidades que se estudian o cuantifican por la variable";
+    const ttTematica = "Tema al que se relaciona la variable";
+    const ttRelaciones = "Disponibilidad de los datos de la variable según los productos de información: tabulados, microdatos o datos abiertos";
+    const ttODS = "Objetivos del Desarrollo Sostenible (ODS) a los que contribuye la variable";
+    const ttMDEA = "Verifica el componente MDEA con el que se alinea la variable";
+
 
     return `
       <div class="mb-3 text-muted" style="font-size: 0.85rem;">
@@ -729,24 +755,33 @@ document.addEventListener("DOMContentLoaded", function () {
       </div>
       <div class="row g-3">
         <div class="col-md-6">
-          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttPregunta}"><i class="bi bi-question-circle me-1"></i>Pregunta:</span><div class="ps-3"><p>${hPregLit}</p></div></div>
-          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttClasificacion}"><i class="bi bi-list-check me-1"></i>Clasificación:</span><div>${getClasificacionesPorVariableHighlighted(variable.idVar, term)}</div></div>
-          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttDefinicion}"><i class="bi bi-info-circle me-1"></i>Definición:</span><div class="ps-3">${hDefVar}</div></div>
-          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttVarFuente}"><i class="bi bi-tag me-1"></i>Variable Fuente:</span><span class="text-dark ms-1 fw-normal">${hNomVar}</span></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttPregunta}"><i class="bi bi-question-circle me-1"></i>Pregunta:</span><div class="ps-3"><p>${hPregLit}</p></div></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttClasificacion}"><i class="bi bi-list-check me-1"></i>Clasificación:</span><div>${getClasificacionesPorVariableHighlighted(variable.id_a, term)}</div></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttDefinicion}"><i class="bi bi-info-circle me-1"></i>Definición:</span><div class="ps-3">${hDefVar}</div></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttVarFuente}"><i class="bi bi-tag me-1"></i>Variable Fuente:</span><span class="text-dark ms-1 fw-normal">${hNomVar}</span></div>
         </div>
         <div class="col-md-6">
-          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttUniverso}"><i class="bi bi-diagram-3 me-1"></i>Categoría:</span><span class="text-dark ms-1 fw-normal">${huniverso}</span></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttUniverso}"><i class="bi bi-diagram-3 me-1"></i>Categoría/Universo:</span><span class="text-dark ms-1 fw-normal">${huniverso}</span></div>
           <div class="mb-2">
             <span class="fw-semibold text-secondary" style="cursor:help;" data-bs-toggle="tooltip" title="${ttTematica}"><i class="bi bi-layers me-1"></i>Temática:</span>
             <div class="ps-3">
-              <span>Principal:</span> <span class="text-dark fw-normal">${hTema} / ${hSubtema}</span><br>
-              ${variable.tema2 ? `<span>Secundaria:</span> <span class="text-dark fw-normal">${hTema2} / ${hSubtema2}</span>` : ""}
+              <span>Tema y Subtema 1: </span> <span class="text-dark fw-normal">${hTema} / ${hSubtema}</span><br>
+              ${variable.tema2 ? `<span>Tema y Subtema 2: </span> <span class="text-dark fw-normal">${hTema2} / ${hSubtema2}</span>` : ""}
             </div>
           </div>
-          <div class="mb-2"><span class="fw-semibold text-secondary"><i class="bi bi-link-45deg me-1"></i>Consulta de datos en:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${badgesRelacionHTML}</div></div>
-          <div class="mb-2"><span class="fw-semibold text-secondary mt-2"><i class="bi bi-globe me-1"></i>Alineación con los ODS:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${odsHTML}</div></div>
-          <div class="mb-2"><span class="fw-semibold text-secondary"><i class="bi bi-tree me-1"></i>Alineación con el MDEA:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${mdeaHTML}</div></div>
-          ${variable.comentario ? `<div class="mb-2"><span class="fw-semibold text-secondary"><i class="bi bi-chat-left-text me-1"></i>Comentario:</span><div class="ps-3 text-dark">${variable.comentario}</div></div>` : ""}
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttRelaciones}"><i class="bi bi-link-45deg me-1"></i>Consulta de datos en:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${badgesRelacionHTML}</div></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttODS}"><i class="bi bi-globe me-1"></i>Alineación con los ODS:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${odsHTML}</div></div>
+          <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttMDEA}"><i class="bi bi-tree me-1"></i>Alineación con el MDEA:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${mdeaHTML}</div></div>
+          <br>
+          <br>
+           <!-- Botón externo: pasa idVar por query a generador -->
+                                          <a class="btn btn-sm btn-gen-indicator"
+                                            href="https://inegi-indicator-gen.lovable.app/?idVar=${encodeURIComponent(variable.idVar)}"
+                                            target="_blank" rel="noopener noreferrer"
+                                            title="Abrir generador de indicadores (pasa idVar)">
+                                            <i class="bi bi-box-arrow-up-right me-1"></i> Generar idea de indicador
+                                            ${variable.idVar}
+                                          </a>
         </div>
       </div>
     `;
@@ -797,7 +832,7 @@ document.addEventListener("DOMContentLoaded", function () {
               
               <div class="timeline-container-wrapper mb-4 border-bottom pb-3">
                  <h6 class="text-muted mb-3"><i class="bi bi-clock-history me-1"></i> Línea del tiempo (Años disponibles):</h6>
-                 <div id="timeline-container-${index}" class="d-flex align-items-center position-relative px-2 pt-2 pb-2" style="gap: 30px; overflow-x: auto; scrollbar-width: thin;">
+                 <div id="timeline-container-${index}" class="d-flex flex-column position-relative px-2 pt-2 pb-2" style="gap: 25px; overflow-x: hidden; scrollbar-width: thin;">
                    ${buildTimelineHTML(group.variables, activeKey, index)}
                  </div>
               </div>
