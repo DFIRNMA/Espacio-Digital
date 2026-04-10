@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const relMicroCheckbox = document.getElementById("relMicroCheckbox");
   const chkRelAbiertos = document.getElementById("chkRelAbiertos");
 
-  // URL base de la nueva API (Relativa)
+  // URL base de la API
   const API_BASE_URL = "/api";
 
   // Variables globales
@@ -31,19 +31,15 @@ document.addEventListener("DOMContentLoaded", function () {
   window.mdeasGlobal = [];
   window.clasifIndex = new Map();
 
-  const params = new URLSearchParams(window.location.search);
   let itemsPerPage = parseInt(15);
   let currentPage = 1;
   let lastSubmittedTerm = null;
   let currentSearchTerm = "";
 
-  window.renderLocked = false;
-  window.initialPaintDone = false;
-
   // Filtro por unidad: 'todas' | 'socio' | 'eco'
   let unidadFiltro = 'todas';
 
-  // Apartado de filtros colapsables
+  // Controles colapsables de filtros
   const toggleBtn = document.querySelector('[data-bs-target="#procCollapse"]');
   const collapseEl = document.getElementById('procCollapse');
   const labelEl = toggleBtn?.querySelector('.collapse-label');
@@ -212,7 +208,6 @@ document.addEventListener("DOMContentLoaded", function () {
       if (loader) loader.style.display = "none";
       if (mainContent) mainContent.style.display = "";
 
-      hideCounterSpinner();
       aplicarFiltroDesdeURL();
 
     } catch (error) {
@@ -353,7 +348,8 @@ document.addEventListener("DOMContentLoaded", function () {
   temaSelect?.addEventListener("change", applyFilters);
 
   itemsPerPageSelect?.addEventListener("change", function () {
-    itemsPerPage = parseInt(this.value, 10);
+    // Si no encuentra el select o valor por alguna razón, usar 15
+    itemsPerPage = parseInt(this.value, 10) || 15;
     applyFilters();
   });
 
@@ -379,7 +375,7 @@ document.addEventListener("DOMContentLoaded", function () {
     searchInput.value = "";
     lastSubmittedTerm = null;
     temaSelect.selectedIndex = 0;
-    itemsPerPageSelect.selectedIndex = 0;
+    if(itemsPerPageSelect) itemsPerPageSelect.selectedIndex = 0;
     sortSelect.selectedIndex = 0;
 
     Array.from(processSelect.options).forEach(option => {
@@ -473,9 +469,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // CONTADOR RESTAURADO
   function updateVariableCounter(count) {
     const el = document.getElementById('totalVariables');
-    if (el) el.textContent = String(count).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    if (el) {
+       el.textContent = String(count).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    }
   }
 
   function highlightTerm(text, term) {
@@ -526,6 +525,161 @@ document.addEventListener("DOMContentLoaded", function () {
       if (num >= 1 && num <= 17) return num; 
     }
     return null;
+  }
+
+  // ==========================================
+  // INCORPORACIÓN DEL CATÁLOGO ODS Y FILTROS
+  // ==========================================
+  const ODS_CATALOGO = {
+    objetivos: {
+      1: "Fin de la pobreza en todas sus formas en todo el mundo", 
+      2: "Poner fin al hambre", 
+      3: "Garantizar una vida sana y promover el bienestar",
+      4: "Garantizar una educación inclusiva, equitativa y de calidad", 
+      5: "Lograr la igualdad entre los géneros", 
+      6: "Garantizar la disponibilidad de agua y su gestión sostenible",
+      7: "Garantizar el acceso a una energía asequible, segura, sostenible y moderna", 
+      8: "Promover el crecimiento económico inclusivo y sostenible, el empleo y el trabajo decente",
+      9: "Construir infraestructuras resilientes, promover la industrialización inclusiva y sostenible y fomentar la innovación", 
+      10: "Reducir la desigualdad en y entre los países",
+      11: "Lograr que las ciudades sean más inclusivas, seguras, resilientes y sostenibles", 
+      12: "Garantizar modalidades de consumo y producción sostenibles",
+      13: "Adoptar medidas urgentes para combatir el cambio climático y sus efectos", 
+      14: "Conservar y utilizar sosteniblemente los océanos, los mares y los recursos marinos", 
+      15: "Proteger, restablecer y promover el uso sostenible de los ecosistemas terrestres",
+      16: "Promover sociedades pacíficas e inclusivas para el desarrollo sostenible", 
+      17: "Fortalecer los medios de ejecución y revitalizar la Alianza Mundial"
+    },
+    metas: {
+      "1.1": "Para 2030, erradicar la pobreza extrema para todas las personas en el mundo.",
+      "1.2": "Para 2030, reducir al menos a la mitad la proporción de hombres, mujeres y niños que viven en la pobreza en todas sus dimensiones.",
+      "1.3": "Poner en práctica a nivel nacional sistemas y medidas apropiadas de protección social.",
+      "1.4": "Para 2030, garantizar que todos los hombres y mujeres, en particular los pobres y los vulnerables, tengan los mismos derechos a los recursos económicos, así como acceso a los servicios básicos.",
+      "1.5": "Para 2030, fomentar la resiliencia de los pobres y las personas que se encuentran en situaciones vulnerables.",
+      "2.1": "Para 2030, poner fin al hambre y asegurar el acceso de todas las personas a una alimentación sana, nutritiva y suficiente.",
+      "3.6": "Para 2020, reducir a la mitad el número de muertes y lesiones causadas por accidentes de tráfico en el mundo.",
+      "3.8": "Lograr la cobertura sanitaria universal, en particular la protección contra los riesgos financieros y el acceso a servicios de salud esenciales.",
+      "3.d": "Reforzar la capacidad de todos los países, en particular los países en desarrollo, en materia de alerta temprana, reducción de riesgos y gestión de los riesgos para la salud.",
+      "4.1": "Para 2030, velar por que todas las niñas y todos los niños terminen la enseñanza primaria y secundaria.",
+      "5.5": "Asegurar la participación plena y efectiva de las mujeres y la igualdad de oportunidades de liderazgo.",
+      "6.1": "Para 2030, lograr el acceso universal y equitativo al agua potable a un precio asequible para todos.",
+      "7.1": "Para 2030, garantizar el acceso universal a servicios energéticos asequibles, fiables y modernos.",
+      "8.5": "Para 2030, lograr el empleo pleno y productivo y el trabajo decente para todas las mujeres y los hombres.",
+      "9.1": "Desarrollar infraestructuras fiables, sostenibles, resilientes y de calidad.",
+      "9.2": "Promover una industrialización inclusiva y sostenible.",
+      "9.3": "Aumentar el acceso de las pequeñas industrias y otras empresas a los servicios financieros.",
+      "9.4": "De aquí a 2030, modernizar la infraestructura y reconvertir las industrias para que sean sostenibles.",
+      "9.5": "Aumentar la investigación científica y mejorar la capacidad tecnológica de los sectores industriales.",
+      "9.a": "Facilitar el desarrollo de infraestructuras sostenibles y resilientes en los países en desarrollo.",
+      "9.b": "Apoyar el desarrollo de tecnologías, la investigación y la innovación nacionales en los países en desarrollo.",
+      "9.c": "Aumentar significativamente el acceso a la tecnología de la información y las comunicaciones.",
+      "10.2": "Para 2030, potenciar y promover la inclusión social, económica y política de todas las personas.",
+      "11.1": "Para 2030, asegurar el acceso de todas las personas a viviendas y servicios básicos adecuados, seguros y asequibles.",
+      "11.2": "Para 2030, proporcionar acceso a sistemas de transporte seguros, asequibles, accesibles y sostenibles para todos.",
+      "11.a": "Apoyar los vínculos económicos, sociales y ambientales positivos entre las zonas urbanas, periurbanas y rurales.",
+      "12.5": "Para 2030, reducir considerablemente la generación de desechos.",
+      "13.1": "Fortalecer la resiliencia y la capacidad de adaptación a los riesgos relacionados con el clima.",
+      "14.1": "Para 2025, prevenir y reducir significativamente la contaminación marina de todo tipo.",
+      "15.1": "Para 2020, velar por la conservación, el restablecimiento y el uso sostenible de los ecosistemas terrestres.",
+      "16.1": "Reducir significativamente todas las formas de violencia y las correspondientes tasas de mortalidad en todo el mundo."
+    }
+  };
+
+  function parseOdsText(rawText, formattedCode) {
+    if (!rawText) return "";
+    let cleanText = String(rawText).trim();
+    const safeCode = formattedCode ? String(formattedCode).trim() : "";
+    
+    cleanText = cleanText.replace(/^(Meta|Indicador)[:\s_]*/i, '').replace(/^[_-\s]+/, '').trim();
+    
+    const plainText = cleanText.toLowerCase();
+    const plainCode = safeCode.toLowerCase().replace(/\./g, ''); 
+    
+    if (plainText === plainCode || plainText === safeCode.toLowerCase()) {
+        return ""; 
+    }
+    
+    if (safeCode && cleanText.toLowerCase().startsWith(safeCode.toLowerCase())) {
+        cleanText = cleanText.substring(safeCode.length).replace(/^[-:.]\s*/, '').trim(); 
+    } else if (plainCode && cleanText.toLowerCase().startsWith(plainCode)) {
+        cleanText = cleanText.substring(plainCode.length).replace(/^[-:.]\s*/, '').trim(); 
+    }
+
+    return cleanText;
+  }
+
+  function formatCompositeCode(val) {
+    if (!val) return "";
+    let s = String(val).replace(/^(Meta|Indicador)[:\s_]*/i, "").replace(/^[_-\s]+/, "").trim();
+    if (s.includes(".")) return s;
+
+    const regex = /^([1-9]|1[0-7])([a-zA-Z0-9])([a-zA-Z0-9]*)$/;
+    const match = s.match(regex);
+    
+    if (match) {
+       let obj = match[1];
+       let meta = match[2];
+       let ind = match[3];
+       
+       let res = obj + "." + meta;
+       if (ind && ind.length > 0) {
+           res += "." + ind.split('').join('.'); 
+       }
+       return res;
+    }
+    
+    const digits = s.replace(/\D/g, "");
+    if (!digits) return s;
+    if (digits.length === 1) return digits;
+    if (digits.length === 2) return `${digits[0]}.${digits[1]}`;
+    return [digits[0], digits[1], ...digits.slice(2).split("")].join(".");
+  }
+
+  function getOdsObjectiveTitle(num) {
+    if (!num) return "";
+    return ODS_CATALOGO.objetivos[String(num)] || "";
+  }
+
+  function getOdsObjectiveShortTitle(num) {
+    const title = getOdsObjectiveTitle(num);
+    return title ? title.replace(/^Objetivo\s*\d+:\s*/i, "") : "";
+  }
+
+  const MDEA_SUBCOMPONENT_LABELS = {
+    "1.1": "Atmósfera", "1.2": "Clima", "1.3": "Calidad del aire",
+    "2.1": "Agua dulce", "2.2": "Agua marina", "2.3": "Bosques",
+    "3.1": "Residuos sólidos", "3.2": "Residuos peligrosos", "3.3": "Contaminación",
+    "4.1": "Terremotos", "4.2": "Huracanes", "4.3": "Inundaciones",
+    "5.1": "Asentamientos urbanos", "5.2": "Infraestructura", "5.3": "Salud ambiental",
+    "6.1": "Áreas protegidas", "6.2": "Participación ciudadana", "6.3": "Educación ambiental"
+  };
+
+  const MDEA_THEME_LABELS = {
+    "1.1.1": "Calidad del aire urbano", "1.1.2": "Contaminación por ozono",
+    "2.1.1": "Disponibilidad de agua", "2.1.2": "Uso de agua",
+    "3.1.1": "Generación de residuos", "3.1.2": "Gestión de residuos",
+    "4.1.1": "Riesgo sísmico", "4.2.1": "Riesgo de huracanes",
+    "5.1.1": "Crecimiento urbano", "5.1.2": "Vivienda",
+    "6.1.1": "Cobertura de áreas protegidas", "6.2.1": "Participación en decisiones ambientales"
+  };
+
+  function getMdeaSubcomponentLabel(code) {
+    if (!code) return "";
+    const cleaned = String(code).trim();
+    return MDEA_SUBCOMPONENT_LABELS[cleaned] || `Subcomponente ${cleaned}`;
+  }
+
+  function getMdeaThemeLabel(code) {
+    if (!code) return "";
+    const cleaned = String(code).trim();
+    return MDEA_THEME_LABELS[cleaned] || `Tema ${cleaned}`;
+  }
+
+  function isCodeLike(str) {
+    if (!str) return false;
+    const text = String(str).trim();
+    if (!text || /\s/.test(text)) return false;
+    return /^[0-9]+[a-zA-Z]*[0-9]*$/.test(text) || /^[0-9]+(\.[0-9a-zA-Z]+)+$/.test(text);
   }
 
   // ==========================================
@@ -596,7 +750,6 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     
     sorted.forEach((v) => {
-      // USAMOS LA LLAVE ÚNICA (ID + AÑO) PARA IDENTIFICAR EXACTAMENTE QUÉ NODO ES CUAL
       const currentKey = window.getUniqueVarKey(v);
       const isActive = (currentKey === String(activeKey));
       
@@ -649,7 +802,6 @@ document.addEventListener("DOMContentLoaded", function () {
     
     const group = window.currentPaginatedGroups[groupIndex];
     
-    // Buscamos la variable comparando la LLAVE ÚNICA
     const variable = group.variables.find(v => window.getUniqueVarKey(v) === clickedKey);
     
     if (variable) {
@@ -736,7 +888,6 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // Textos de los tooltips (puedes editarlos si prefieres otra definición)
     const ttPregunta = "Pregunta utilizada para recolectar esta variable en el cuestionario";
     const ttClasificacion = "Respuestas posibles de la pregunta de captación. Si la pregunta es abierta, este campo puede no aplicarse";
     const ttDefinicion = "Descripción detallada de la variable tal como aparece en la Fuente";
@@ -746,7 +897,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const ttRelaciones = "Disponibilidad de los datos de la variable según los productos de información: tabulados, microdatos o datos abiertos";
     const ttODS = "Objetivos del Desarrollo Sostenible (ODS) a los que contribuye la variable";
     const ttMDEA = "Verifica el componente MDEA con el que se alinea la variable";
-
 
     return `
       <div class="mb-3 text-muted" style="font-size: 0.85rem;">
@@ -774,14 +924,13 @@ document.addEventListener("DOMContentLoaded", function () {
           <div class="mb-2"><span class="fw-semibold text-secondary" style="cursor:help;" title="${ttMDEA}"><i class="bi bi-tree me-1"></i>Alineación con el MDEA:</span><div class="ps-3 d-flex flex-wrap gap-2 mt-1">${mdeaHTML}</div></div>
           <br>
           <br>
-           <!-- Botón externo: pasa idVar por query a generador -->
-                                          <a class="btn btn-sm btn-gen-indicator"
-                                            href="https://inegi-indicator-gen.lovable.app/?idVar=${encodeURIComponent(variable.idVar)}"
-                                            target="_blank" rel="noopener noreferrer"
-                                            title="Abrir generador de indicadores (pasa idVar)">
-                                            <i class="bi bi-box-arrow-up-right me-1"></i> Generar idea de indicador
-                                            ${variable.idVar}
-                                          </a>
+          <a class="btn btn-sm btn-gen-indicator"
+             href="https://inegi-indicator-gen.lovable.app/?idVar=${encodeURIComponent(variable.idVar)}"
+             target="_blank" rel="noopener noreferrer"
+             title="Abrir generador de indicadores (pasa idVar)">
+             <i class="bi bi-box-arrow-up-right me-1"></i> Generar idea de indicador
+             ${variable.idVar}
+          </a>
         </div>
       </div>
     `;
@@ -794,6 +943,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (!container) return;
     container.innerHTML = "";
     
+    // Aquí actualizamos el contador global de "Total de Variables"
     if(typeof updateVariableCounter === "function") updateVariableCounter(groupedData.length);
 
     if (groupedData.length === 0) {
@@ -809,9 +959,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     paginatedGroups.forEach((group, index) => {
       const v = group.activeVar; 
-      
       const activeKey = window.getUniqueVarKey(v);
-      
       const unitCls = (getUnidadDeVariable(v) === 'eco') ? 'acc-eco' : 'acc-socio';
       const hVarAsig = highlightTerm(group.name, currentSearchTerm);
       const textoProc = v.acronimo || '—';
@@ -847,31 +995,54 @@ document.addEventListener("DOMContentLoaded", function () {
       `;
       container.appendChild(card);
     });
+
+    // Reinicializamos los tooltips después de pintar
+    initBootstrapTooltips();
   }
 
+  // Reparación para que los Tooltips no se rompan al cambiar de página
   function initBootstrapTooltips() {
     if (typeof bootstrap === 'undefined' || !bootstrap.Tooltip) return;
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+    tooltipTriggerList.forEach(el => {
+       const instance = bootstrap.Tooltip.getInstance(el);
+       if (instance) instance.dispose(); // Destruir instancia anterior si existe
+       new bootstrap.Tooltip(el);
+    });
   }
 
   // ==========================================
-  // PAGINACIÓN
+  // PAGINACIÓN RESTAURADA Y ROBUSTA
   // ==========================================
-  function setupPagination(data) {
+function setupPagination(data) {
+    // 1. Buscamos el contenedor directamente
+    const paginationContainer = document.getElementById("pagination");
     if (!paginationContainer) return;
+    
+    // Limpiamos lo que haya
     paginationContainer.innerHTML = "";
+    
+    // Calculamos el total de páginas
     const totalPages = Math.ceil(data.length / itemsPerPage);
-    if (totalPages <= 1) return;
+    
+    // ¡OJO AQUÍ! Para depurar, esto imprimirá en la consola cuántas páginas hay.
+    console.log("Grupos a mostrar:", data.length, "Total de páginas:", totalPages);
 
+    // Si hay 15 o menos elementos, NO hay paginador porque solo hay 1 página
+    if (totalPages <= 1) return; 
+
+    // Función que crea cada botón de página (<li> y <a>)
     const createLi = (text, targetPage, disabled = false, active = false) => {
       const li = document.createElement("li");
       li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+      
       const a = document.createElement("a");
       a.className = "page-link";
       a.href = "#";
       a.textContent = text;
+      
       if (!disabled && !active) {
+        // Estilos originales que tenías (fondo azul #003057 y letra blanca)
         a.style.backgroundColor = "#003057";
         a.style.color = "#fff";
         a.addEventListener("click", (e) => {
@@ -879,12 +1050,15 @@ document.addEventListener("DOMContentLoaded", function () {
           currentPage = targetPage;
           renderPage(data, currentPage);
           setupPagination(data);
+          // Opcional: Esto hace que al cambiar de página, la pantalla suba suavemente
+          window.scrollTo({ top: 0, behavior: 'smooth' }); 
         });
       }
       li.appendChild(a);
       return li;
     };
 
+    // Botones "Primera página" y "«"
     if (currentPage > 1) {
       paginationContainer.appendChild(createLi("Primera página", 1));
       if (currentPage >= 2) {
@@ -892,6 +1066,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
+    // Lógica para mostrar siempre 5 números de página como máximo
     let start = Math.max(1, currentPage - 2);
     let end = Math.min(totalPages, start + 4);
     if (end - start < 4) start = Math.max(1, end - 4);
@@ -900,12 +1075,12 @@ document.addEventListener("DOMContentLoaded", function () {
       paginationContainer.appendChild(createLi(i, i, false, i === currentPage));
     }
 
+    // Botones "»" y "Última página"
     if (currentPage < totalPages) {
       paginationContainer.appendChild(createLi("»", currentPage + 1));
       paginationContainer.appendChild(createLi("Última página", totalPages));
     }
   }
-
   // ==========================================
   // URL FILTERS / LOADERS / INIT
   // ==========================================
@@ -931,13 +1106,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     filtroURLAplicado = true;
   }
-
-  function showProcessSkeleton() {} 
-  function showVariablesSkeleton() {}
-  function showCounterSpinner() {}
-  function showListSpinner() {}
-  function hideCounterSpinner() {}
-  function hideListSpinner() {}
 
   const currentPath = window.location.pathname.split("/").pop();
   document.querySelectorAll(".navbar-nav .nav-link").forEach(link => {
@@ -988,15 +1156,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function getVariableByAnyIdentifiers({idVar, id_a, id_s}) {
-    const normalized = String(idVar || id_a || id_s || "").trim().toUpperCase();
-    if (!normalized) return null;
-    return allData.find(v => {
-      const idVariants = [v.idVar, v.id_a, v.id_s, v.acronimo];
-      return idVariants.some(x => String(x || "").trim().toUpperCase() === normalized);
-    });
-  }
-
   function ensureModalOpen() {
     const modalEl = document.getElementById("infoModal");
     if (!modalEl || typeof bootstrap === 'undefined') return;
@@ -1012,7 +1171,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const modal = document.getElementById('infoModal');
     if (!modal || typeof bootstrap === 'undefined') return;
     const tooltips = [].slice.call(modal.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltips.forEach(el => new bootstrap.Tooltip(el));
+    tooltips.forEach(el => {
+        const instance = bootstrap.Tooltip.getInstance(el);
+        if(instance) instance.dispose();
+        new bootstrap.Tooltip(el);
+    });
   }
 
   // ==========================================
@@ -1270,21 +1433,26 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const fmt = (s) => (s || "").toString().replace(/_/g, " ").replace(/-/g, " ").replace(/\s+/g, " ").trim();
-        const compTitle = fmt(String(registros[0].componenteNombre ?? registros[0].componente ?? registros[0].compo ?? "").replace(/^\d+\s*/, "").replace(/\s*\d+$/, ""));
-        
-        modalTitle.textContent = `Componente ${compNum} — ${compTitle}`;
+        const compLabel = getMdeaComponentLabel(compNum);
+        modalTitle.textContent = `Componente ${compNum} — ${compLabel}`;
 
         modalBody.innerHTML = registros.map(info => {
-          const sub = fmt(info.subcompo || info.subcomponente || info.subcomponenteNombre);
-          const tema = fmt(info.topico || info.tema || info.temaNombre);
+          const rawSub = fmt(info.subcompo || info.subcomponente || info.subcomponenteNombre);
+          const rawTema = fmt(info.topico || info.tema || info.temaNombre);
+          const sub = isCodeLike(rawSub) ? formatCompositeCode(rawSub) : rawSub;
+          const tema = isCodeLike(rawTema) ? formatCompositeCode(rawTema) : rawTema;
           const e1 = fmt(info.estAmbiental || info.estadistica1 || info.estadistica1Nombre);
           const e2 = fmt(info.estadistica2 || info.estadistica2Nombre);
+          
+          const subDesc = isCodeLike(rawSub) ? getMdeaSubcomponentLabel(sub) : (rawSub || "");
+          const temaDesc = isCodeLike(rawTema) ? getMdeaThemeLabel(tema) : (rawTema || "");
+          
           const line = (label, val) => (val && val !== "-" && val !== "null") ? `<div><strong>${label}:</strong> ${val}</div>` : "";
           
           return `
             <div class="mb-3 border-bottom pb-2">
-              ${line("Subcomponente", sub)}
-              ${line("Tema/Tópico", tema)}
+              ${line("Subcomponente", subDesc)}
+              ${line("Tema/Tópico", temaDesc)}
               ${line("Estadística 1", e1)}
               ${line("Estadística 2", e2)}
             </div>
@@ -1296,7 +1464,9 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    // 5. ODS
+    // ==========================================
+    // 5. ODS - CON CATÁLOGO INCORPORADO Y FILTROS LIMPIOS
+    // ==========================================
     const odsTrigger = e.target.closest(".badge-ods");
     if (odsTrigger && !odsTrigger.classList.contains("disabled")) {
       resetModalHeaderColor();
@@ -1314,7 +1484,10 @@ document.addEventListener("DOMContentLoaded", function () {
       try {
         const variable = getVariableByIdVar(idVar);
 
-        let registros = window.odsGlobal.filter(o => matchIds(o.idVar, idVar) || matchIds(o.id_a, variable.id_a));
+        let registros = window.odsGlobal.filter(o => {
+            return matchIds(o.idVar, idVar) || (variable && matchIds(o.id_a, variable.id_a));
+        });
+
         registros = registros.filter(r => getOdsObjectiveNumber(r.ods || r.objetivo) === clickedOds);
 
         if (!registros.length) {
@@ -1323,41 +1496,68 @@ document.addEventListener("DOMContentLoaded", function () {
         }
 
         const cleanUnderscores = str => (str || "").toString().replace(/_/g, " ").replace(/\s+/g, " ").trim();
-        const formatOdsComposite = val => {
-          if (!val) return "-";
-          const s = String(val).trim();
-          if (s.includes(".")) return s;
-          const digits = s.replace(/\D/g, "");
-          if (digits.length <= 2) return String(parseInt(digits || "0", 10) || "-");
-          const obj = String(parseInt(digits.slice(0, 2), 10));
-          const rest = digits.slice(2).split("").join(".");
-          return `${obj}.${rest}`;
-        };
 
         const first = registros[0];
-        const rawName = first.objetivo || first.objetivo || first.contribucion || "";
-        const cleanName = cleanUnderscores(rawName.replace(/_\d+$/, "")); 
-        modalTitle.textContent = `ODS ${clickedOds}. ${cleanName}`;
+        const objectiveNumber = getOdsObjectiveNumber(first.ods || first.objetivo) || clickedOds;
+        const objectiveTitle = getOdsObjectiveShortTitle(objectiveNumber) || cleanUnderscores((first.objetivo || "").replace(/_\d+$/, ""));
+        
+        modalTitle.textContent = `ODS ${objectiveNumber}. ${objectiveTitle}`;
 
         modalBody.innerHTML = `<div class="list-group">` + registros.map(info => {
-          const metaCode = cleanUnderscores(formatOdsComposite(info.meta));
-          const indicatorCode = cleanUnderscores(formatOdsComposite(info.indicador));
-          const metaLine = metaCode && metaCode !== "-" ? `<div class="small mb-1 text-primary fw-bold">Meta ${metaCode}</div>` : "";
-          const indicadorLine = indicatorCode && indicatorCode !== "-" ? `<div class="small"><strong>Indicador ${indicatorCode}</strong></div>` : "";
+          
+          const metaRaw = String(info.meta || "");
+          const indicadorRaw = String(info.indicador || "");
+          
+          let metaCode = formatCompositeCode(metaRaw);
+          let indicatorCode = formatCompositeCode(indicadorRaw);
+
+          let finalMetaText = parseOdsText(metaRaw, metaCode);
+          let finalIndicatorText = parseOdsText(indicadorRaw, indicatorCode);
+
+          if (!finalMetaText && metaCode) {
+              finalMetaText = ODS_CATALOGO.metas[metaCode.toLowerCase()] || ODS_CATALOGO.metas[metaCode] || "";
+          }
+
           const contrib = cleanUnderscores(info.contribucion || "");
-          const comentarios = cleanUnderscores(info.comentario_s || "");
+          const comentarios = cleanUnderscores(info.comentario_s || info.comentarios || "");
 
           let detail = "";
-          if (metaLine) detail += `<div>${metaLine}${cleanUnderscores(info.meta || "") ? `<div class='small text-dark mb-1'>${cleanUnderscores(info.meta || "")}</div>` : ""}</div>`;
-          if (indicadorLine) detail += `<div>${indicadorLine}${cleanUnderscores(info.indicador || "") ? `<div class='small text-dark mb-1'>${cleanUnderscores(info.indicador || "")}</div>` : ""}</div>`;
-          if (contrib) detail += `<div class='small text-secondary mt-1'><strong>Contribución:</strong> ${contrib}</div>`;
-          if (comentarios) detail += `<div class='small text-secondary mt-1'><strong>Comentario:</strong> ${comentarios}</div>`;
+          
+          if (metaCode && metaCode !== "-") {
+              detail += `
+                <div class="mb-3">
+                  <div class="small text-primary fw-bold mb-1">Meta ${metaCode}</div>
+                  ${finalMetaText ? `<div class="small text-dark lh-sm">${finalMetaText}</div>` : ""}
+                </div>
+              `;
+          } else if (finalMetaText && finalMetaText !== "-") {
+              detail += `<div class="small text-dark lh-sm mb-3">${finalMetaText}</div>`;
+          }
+
+          if (indicatorCode && indicatorCode !== "-") {
+              detail += `
+                <div class="mb-2">
+                  <div class="small text-dark fw-bold mb-1">Indicador ${indicatorCode}</div>
+                  ${finalIndicatorText ? `<div class="small text-dark lh-sm">${finalIndicatorText}</div>` : ""}
+                </div>
+              `;
+          } else if (finalIndicatorText && finalIndicatorText !== "-") {
+              detail += `<div class="small text-dark lh-sm mb-2">${finalIndicatorText}</div>`;
+          }
+
+          if (contrib && contrib !== "-" && contrib.toLowerCase() !== "null") {
+              detail += `<div class='small text-secondary mt-2 border-top pt-2'><strong>Contribución:</strong> ${contrib}</div>`;
+          }
+          if (comentarios && comentarios !== "-" && comentarios.toLowerCase() !== "null") {
+              detail += `<div class='small text-secondary mt-1'><strong>Comentario:</strong> ${comentarios}</div>`;
+          }
 
           return `<div class="list-group-item bg-light border-0 mb-2 rounded shadow-sm">${detail || "<div class='small text-muted'>Datos ODS sin detalle.</div>"}</div>`;
         }).join("") + `</div>`;
 
       } catch (err) {
-        modalBody.innerHTML = "<div class='text-danger'>Error al cargar la información de ODS.</div>";
+        console.error("Error ODS:", err);
+        modalBody.innerHTML = `<div class='text-danger'>Error al cargar la información de ODS: ${err.message}</div>`;
       }
     }
 
