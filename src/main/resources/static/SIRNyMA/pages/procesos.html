@@ -336,7 +336,7 @@
 
     <div class="d-flex flex-wrap align-items-center gap-2">
       <!-- Select de ordenamiento -->
-      <select id="ordenarProcesos" class="form-select w-auto">
+      <select id="ordenarProcesos" class="form-select form-select-sm w-auto">
         <option value="">Ordenar por...</option>
         <option value="az">Nombre (A - Z)</option>
         <option value="za">Nombre (Z - A)</option>
@@ -345,7 +345,7 @@
       </select>
 
       <!-- Select de estatus -->
-      <select id="filtrarEstatus" class="form-select w-auto">
+      <select id="filtrarEstatus" class="form-select form-select-sm w-auto">
         <option value="">Filtrar por estatus...</option>
         <option value="Activo">Activo</option>
         <option value="Inactivo">Inactivo</option>
@@ -353,8 +353,14 @@
       </select>
 
       <!-- Select de periodicidad dinámico -->
-      <select id="filtrarPeriodicidad" class="form-select w-auto">
+      <select id="filtrarPeriodicidad" class="form-select form-select-sm w-auto">
         <option value="">Filtrar por periodicidad...</option>
+        <!-- Opciones se llenan vía JS -->
+      </select>
+
+      <!-- Select de Método dinámico -->
+      <select id="filtrarMetodo" class="form-select form-select-sm w-auto">
+        <option value="">Filtrar por método...</option>
         <!-- Opciones se llenan vía JS -->
       </select>
 

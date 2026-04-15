@@ -8,7 +8,7 @@ let unidadToken = 0;
 
 // === Valores iniciales (Resumen Global) ===
 const GLOBAL_DEFAULTS = {
-  unidades: 5,
+  unidades: 2,
   procesosTotales: 144,        // Ajusta según tus datos reales
   procesosAmbientales: 49,     // Ajusta según tus datos reales
   variablesAmbientales: 6234   // Ajusta según tus datos reales
@@ -92,6 +92,9 @@ function normalizarProceso(item) {
     .map(p => p.trim())
     .filter(p => p.length > 0);
 
+  // 3.2. Metodo (extraer de la API)
+  const metodoRaw = String(item.metodo || "No disponible").trim();
+
   return {
     idPp: id,
     pp: nombre,
@@ -99,6 +102,7 @@ function normalizarProceso(item) {
     estatus: item.estatus || "Desconocido",
     periodicidad: periodicidadRaw,
     periodicidades,
+    metodo: metodoRaw,
     // Campos nuevos de la entidad actualizada
     inicio: rawInicio,
     conclusion: rawConclusion,
@@ -268,8 +272,9 @@ function renderProcesos(procesos, conteo, container) {
                <img src="${imgPath}" class="img-fluid" style="max-height: 60px;" onerror="this.src='${imgFallback}'">
             </div>
             <div class="col-8 ps-2 small">
-               <div><strong>ID:</strong> ${p.idPp}</div>
+               <div><strong>${p.idPp}</strong></div>
                <div><strong>Estatus:</strong> ${p.estatus}</div>
+               <div><strong>Método:</strong> ${p.metodo}</div>
                <div><strong>Periodicidad:</strong> ${p.periodicidad}</div>
                <div><strong>Vigencia:</strong> ${p.vigencia}</div>
                <div class="mt-1">
@@ -334,16 +339,24 @@ function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
     selectPerio.innerHTML = '<option value="">Filtrar por periodicidad...</option>' + 
       periodos.map(p => `<option value="${p}">${p}</option>`).join('');
   }
-
+  const selectMetodo = document.getElementById("filtrarMetodo");
+  if (selectMetodo) {
+    const metodos = [...new Set(procesosGlobal.map(p => p.metodo || "No disponible"))]
+      .sort((a, b) => String(a).localeCompare(String(b), 'es', { sensitivity: 'base' }));
+    selectMetodo.innerHTML = '<option value="">Filtrar por método...</option>' + 
+      metodos.map(m => `<option value="${m}">${m}</option>`).join('');
+  }
   const aplicar = () => {
     const estatusVal = document.getElementById("filtrarEstatus")?.value.toLowerCase();
     const periodVal = document.getElementById("filtrarPeriodicidad")?.value;
+    const metodoVal = document.getElementById("filtrarMetodo")?.value;
     const iinCheck = document.getElementById("iinCheck")?.checked;
     const ordenVal = document.getElementById("ordenarProcesos")?.value || 'az';
 
     let resultado = procesosGlobal.filter(p => {
       if (estatusVal && (p.estatus || '').toLowerCase() !== estatusVal) return false;
       if (periodVal && !((p.periodicidades || []).includes(periodVal))) return false;
+      if (metodoVal && (p.metodo || '').trim() !== metodoVal.trim()) return false;
       if (iinCheck && !p.gradoMadur) return false;
       return true;
     });
@@ -359,7 +372,7 @@ function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
     renderProcesos(resultado, conteoGlobal, container);
   };
 
-  ['filtrarEstatus', 'filtrarPeriodicidad', 'ordenarProcesos'].forEach(id => {
+  ['filtrarEstatus', 'filtrarPeriodicidad', 'filtrarMetodo', 'ordenarProcesos'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', aplicar);
   });
   document.getElementById('iinCheck')?.addEventListener('change', aplicar);
@@ -370,10 +383,12 @@ function wireFiltrosYOrden({ procesosGlobal, conteoGlobal, container }) {
     resetBtn.addEventListener('click', () => {
       const est = document.getElementById('filtrarEstatus');
       const per = document.getElementById('filtrarPeriodicidad');
+      const met = document.getElementById('filtrarMetodo');
       const ord = document.getElementById('ordenarProcesos');
       const iin = document.getElementById('iinCheck');
       if (est) est.selectedIndex = 0;
       if (per) per.selectedIndex = 0;
+      if (met) met.selectedIndex = 0;
       if (ord) ord.selectedIndex = 0;
       if (iin) iin.checked = false;
       aplicar();

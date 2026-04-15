@@ -901,7 +901,7 @@ document.addEventListener("DOMContentLoaded", function () {
     return `
       <div class="mb-3 text-muted" style="font-size: 0.85rem;">
         <i class="bi bi-upc-scan me-1"></i> <strong style="cursor:help;" data-bs-toggle="tooltip" title="Identificador único de la variable">ID:</strong> <span class="badge bg-secondary">${variable.id_a || variable.idVar}</span>
-        <span class="ms-3"><i class="bi bi-calendar3"></i> <strong style="cursor:help;" data-bs-toggle="tooltip" title="Año referenciado de la información">Año referenciado:</strong> <span class="badge bg-dark">${variable.anio_referencia || 'N/A'}</span></span>
+        <span class="ms-3"><i class="bi bi-calendar3"></i> <strong style="cursor:help;" data-bs-toggle="tooltip" title="Año de referencia de la variable">Año de referencia:</strong> <span class="badge bg-dark">${variable.anio_referencia || 'N/A'}</span></span>
       </div>
       <div class="row g-3">
         <div class="col-md-6">
@@ -1212,7 +1212,7 @@ function setupPagination(data) {
             return `
               <div class="tabulado-card mb-2">
                 <div class="tabulado-title">${t.tabulado || "Tabulado"}</div>
-                <div class="tabulado-small text-muted mb-1">Tipo: ${tipo}${comentario ? ` | ${comentario}` : ""}</div>
+                
                 <div class="tabulado-actions">
                   <div class="ta-left">${botonAcceso}</div>
                   <div class="ta-right">
@@ -1266,7 +1266,7 @@ function setupPagination(data) {
           return `
             <div class="tabulado-card mb-2">
               <div class="tabulado-title">${titulo}</div>
-              <div class="tabulado-small text-muted mb-1">Tipo: ${tipo} | Hoja: ${hoja}${comentarioTab ? ` | ${comentarioTab}` : ""}</div>
+             
               <div class="tabulado-actions">
                 <div class="ta-left">${botonAcceso} ${botonWeb}</div>
                 <div class="ta-right">
@@ -1314,8 +1314,6 @@ function setupPagination(data) {
 
             return `
             <div class="tabulado-card mb-2">
-              <div class="tabulado-title">${labelTabla}</div>
-              <div class="tabulado-small text-muted mb-1">Campo: ${labelCampo}${descriptor ? ` | Descriptor: ${descriptor}` : ""}${comentario ? ` | ${comentario}` : ""}</div>
               <div class="tabulado-actions">
                 <div class="ta-left">${btnAcceso}</div>
                 <div class="ta-right">
@@ -1350,8 +1348,6 @@ function setupPagination(data) {
 
             return `
               <div class="tabulado-card mb-2">
-                <div class="tabulado-title">${tabla}</div>
-                <div class="tabulado-small text-muted mb-1">Campo: ${campo}${descriptorText ? ` | Descriptor: ${descriptorText}` : ""}${comentario ? ` | ${comentario}` : ""}</div>
                 <div class="tabulado-actions">
                   <div class="ta-left">${botonAcceso}</div>
                   <div class="ta-right">
@@ -1518,7 +1514,6 @@ function setupPagination(data) {
               finalMetaText = ODS_CATALOGO.metas[metaCode.toLowerCase()] || ODS_CATALOGO.metas[metaCode] || "";
           }
 
-          const contrib = cleanUnderscores(info.contribucion || "");
           const comentarios = cleanUnderscores(info.comentario_s || info.comentarios || "");
 
           let detail = "";
@@ -1545,9 +1540,6 @@ function setupPagination(data) {
               detail += `<div class="small text-dark lh-sm mb-2">${finalIndicatorText}</div>`;
           }
 
-          if (contrib && contrib !== "-" && contrib.toLowerCase() !== "null") {
-              detail += `<div class='small text-secondary mt-2 border-top pt-2'><strong>Contribución:</strong> ${contrib}</div>`;
-          }
           if (comentarios && comentarios !== "-" && comentarios.toLowerCase() !== "null") {
               detail += `<div class='small text-secondary mt-1'><strong>Comentario:</strong> ${comentarios}</div>`;
           }
